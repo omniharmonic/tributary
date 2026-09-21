@@ -140,6 +140,13 @@ export interface Source {
   interval?: number
 }
 
+/** Proving control of a source: the token goes in the calendar's title or description. */
+export interface VerifyToken {
+  token: string
+  instructions: string
+}
+export type VerifyCheck = { verified: true; provenanceLevel: ProvenanceLevel } | { verified: false; reason: string }
+
 export interface SyncRun {
   startedAt: string
   finishedAt?: string | null

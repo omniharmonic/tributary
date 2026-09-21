@@ -34,6 +34,8 @@ import type {
   SourceDetail,
   Visibility,
   Audience,
+  VerifyToken,
+  VerifyCheck,
 } from './types'
 
 export const MOCK = import.meta.env.VITE_MOCK_API === '1'
@@ -105,6 +107,9 @@ export interface Api {
   patchSource(id: string, body: { defaultVisibility?: Visibility; audience?: Audience; paused?: boolean; interval?: number; tz?: string }): Promise<Source | { pendingConfirmation: number }>
   syncSource(id: string): Promise<{ jobId: string }>
   removeSource(id: string): Promise<{ removed: number }>
+  /** Prove control of a source: get the token to place in it, then check. */
+  verifySource(id: string): Promise<VerifyToken>
+  checkVerification(id: string): Promise<VerifyCheck>
   rules(id: string): Promise<{ rules: Rule[] }>
   putRules(id: string, rules: Rule[]): Promise<{ rules: Rule[]; pendingConfirmation?: number }>
 
@@ -200,6 +205,8 @@ export const realApi: Api = {
   patchSource: (id, body) => call('PATCH', `/api/sources/${id}`, body),
   syncSource: (id) => call('POST', `/api/sources/${id}/sync`, {}),
   removeSource: (id) => call('DELETE', `/api/sources/${id}`),
+  verifySource: (id) => call('POST', `/api/sources/${id}/verify`, {}),
+  checkVerification: (id) => call('POST', `/api/sources/${id}/verify/check`, {}),
   rules: (id) => call('GET', `/api/sources/${id}/rules`),
   putRules: (id, rules) => call('PUT', `/api/sources/${id}/rules`, { rules }),
 

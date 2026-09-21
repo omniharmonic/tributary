@@ -192,6 +192,18 @@ async function main(): Promise<void> {
     if (!list2.records.some((r) => r.value.name.endsWith('(renamed)'))) fail('renamed event not updated on the PDS')
     ok('source edit propagated to the repo')
 
+    // 9b. Verified source: token placed in the feed → provenance rises.
+    const tok = await json('POST', `${T}/api/sources/${src.id}/verify`, {}, cookie)
+    if (!tok.data.token) fail(`no verification token: ${JSON.stringify(tok.data)}`)
+    const miss = await json('POST', `${T}/api/sources/${src.id}/verify/check`, {}, cookie)
+    if (miss.data.verified !== false) fail('verification passed before the token was placed')
+    feed = feed.replace(/^X-WR-CALNAME:(.*)$/m, `X-WR-CALNAME:$1\nX-WR-CALDESC:Verified with ${tok.data.token}`)
+    const hit = await json('POST', `${T}/api/sources/${src.id}/verify/check`, {}, cookie)
+    if (hit.data.verified !== true) fail(`verification failed: ${JSON.stringify(hit.data)}`)
+    const me2 = await json('GET', `${T}/api/me`, undefined, cookie)
+    if ((me2.data.host as { provenanceLevel: string }).provenanceLevel !== 'source') fail('provenance did not rise to source')
+    ok('verified source: token found in the feed, provenance is now "source"')
+
     // 10. Narrow to unlisted at once, then delete everything.
     const target = events.find((e) => e.atUri)!
     const patch = await json('PATCH', `${T}/api/events/${target.id}`, { visibility: 'unlisted' }, cookie)

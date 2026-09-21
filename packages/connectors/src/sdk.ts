@@ -64,7 +64,7 @@ export interface FetchResult<Cursor = unknown> {
   etag?: string
   lastModified?: string
   /** Feed-level metadata worth showing the host. */
-  meta?: { title?: string; tz?: string; url?: string; csv?: { headers: string[]; sample: Array<Record<string, string>>; unmapped: string[]; dropped: number } }
+  meta?: { title?: string; description?: string; tz?: string; url?: string; csv?: { headers: string[]; sample: Array<Record<string, string>>; unmapped: string[]; dropped: number } }
 }
 
 export interface PushPayload {

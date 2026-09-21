@@ -125,6 +125,8 @@ const managed: ManagedHost[] = [
   { id: 'h-library', handle: hosts.library!.handle, displayName: hosts.library!.displayName, role: 'viewer' },
 ]
 const delay = (ms = 250) => new Promise((r) => setTimeout(r, ms))
+const verifyAttempts = new Map<string, number>()
+
 const requireMe = () => {
   if (!me) throw new ApiError('Unauthorized', 'Sign in to continue.', 401)
   return me
@@ -307,6 +309,23 @@ export const mockApi: Api = {
     const s: SourceDetail = { id: `s${sources.length + 1}`, type: p?.source.type ?? body.match?.type ?? 'ics', platform: p?.source.platform ?? body.match?.platform ?? 'ics', label: p?.source.label ?? body.match?.label ?? 'New source', status: 'active', defaultVisibility: body.defaultVisibility, lastSyncAt: null, lastSuccessAt: null, nextRunAt: iso(now.plus({ minutes: 1 })), consecutiveFailures: 0, lastError: null, counts: { live: 0, cancelled: 0, held: 0 }, claimed: true, createdAt: iso(now), tz: TZ, interval: 30, rules: [], syncRuns: [] }
     sources.push(s)
     return s
+  },
+  async verifySource(id) {
+    requireMe()
+    await delay(300)
+    const s = sources.find((x) => x.id === id)
+    if (!s) throw new ApiError('NotFound', 'Nothing is here.', 404)
+    verifyAttempts.set(id, 0)
+    return { token: `tributary-verify-${id}k3m9x2`, instructions: 'Paste this token anywhere in your calendar’s title or description at the source, wait a minute, then check.' }
+  },
+  async checkVerification(id) {
+    const who = requireMe()
+    await delay(900)
+    const n = (verifyAttempts.get(id) ?? 0) + 1
+    verifyAttempts.set(id, n)
+    if (n < 2) return { verified: false, reason: 'The token was not found in the feed yet; feeds can take a few minutes to update.' }
+    if (who.host.provenanceLevel === 'email') who.host.provenanceLevel = 'source'
+    return { verified: true, provenanceLevel: who.host.provenanceLevel }
   },
   async source(id) {
     requireMe()

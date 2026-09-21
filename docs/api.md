@@ -107,6 +107,9 @@ Run now. `202 { "jobId" }`. Rate limited to one per minute per source.
 ### `DELETE /api/sources/:id`
 Unpublishes (deletes) every record from this source, then removes it. `{ "removed": n }`.
 
+### Verified source
+`POST /api/sources/:id/verify` → `{ token, instructions }`; the host puts the token in the calendar's description. `POST /api/sources/:id/verify/check` re-reads the source and, when the token is found, raises the host's provenance to `source` → `{ verified: true, provenanceLevel }`, else `{ verified: false, reason }`. OAuth hosts whose handle is their own domain get `domain` automatically.
+
 ### Rules
 
 `GET /api/sources/:id/rules`, `PUT /api/sources/:id/rules` with `{ "rules": [ { "match": { "titleContains"?: "…", "calendar"?: "…", "category"?: "…", "locationType"?: "home" | "venue" | "online", "flag"?: "private" | "membersOnly" }, "level": Visibility, "audience"?: Audience, "gatedFields"?: GatedField[] } ] }`. Rules are evaluated in order; the first match wins. A rule that would widen existing events queues them for confirmation.

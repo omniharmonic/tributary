@@ -33,7 +33,7 @@ export interface ParseIcsOptions {
 
 export interface ParseIcsResult {
   events: RawEvent[]
-  meta: { title?: string; tz?: string; prodId?: string; url?: string }
+  meta: { title?: string; description?: string; tz?: string; prodId?: string; url?: string }
   /** The feed is the full current set within its observed window. */
   complete: boolean
   window: { from?: Date; to?: Date }
@@ -286,6 +286,7 @@ export function parseIcs(text: string, opts: ParseIcsOptions): ParseIcsResult {
   const fallbackTz = feedTz ?? opts.defaultTz
   const meta = {
     title: str(cal.getFirstPropertyValue('x-wr-calname')) ?? str(cal.getFirstPropertyValue('name')),
+    description: str(cal.getFirstPropertyValue('x-wr-caldesc')) ?? str(cal.getFirstPropertyValue('description')),
     tz: feedTz,
     prodId: str(cal.getFirstPropertyValue('prodid')),
     url: str(cal.getFirstPropertyValue('x-original-url')) ?? str(cal.getFirstPropertyValue('url')),

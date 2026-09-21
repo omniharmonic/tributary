@@ -59,7 +59,7 @@ export function toFetchResult(parsed: ParseIcsResult, extra: { etag?: string; la
     window: parsed.window,
     etag: extra.etag,
     lastModified: extra.lastModified,
-    meta: { title: parsed.meta.title, tz: parsed.meta.tz, url: extra.url ?? parsed.meta.url },
+    meta: { title: parsed.meta.title, description: parsed.meta.description, tz: parsed.meta.tz, url: extra.url ?? parsed.meta.url },
   }
 }
 

@@ -1,6 +1,7 @@
 {
   "meta": {
     "title": "eTown Hall Events",
+    "description": "Events for eTown Hall",
     "tz": "America/Denver",
     "prodId": "-//The Events Calendar//6.5//EN",
     "url": "https://etown.example.org"

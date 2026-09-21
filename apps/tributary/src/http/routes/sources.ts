@@ -16,6 +16,7 @@ import { describeError, log } from '../../lib/logging.js'
 import { isPushPreview, loadPreview } from '../../lib/preview.js'
 import { connectSource, publicSource, SourceError } from '../../lib/sources.js'
 import { deletePermissioned } from '../../pipeline/gate.js'
+import { checkVerification, raiseProvenance, verificationToken } from '../../lib/provenance.js'
 import { ApiError, body, notFound, rateLimit, requireHost, str, type Vars } from '../context.js'
 import { toCard, type NormalizedEvent } from '@tributary/event-model'
 
@@ -169,6 +170,28 @@ sourceRoutes.delete('/:id', async (c) => {
   await getDb().delete(source).where(eq(source.id, s.id))
   await recordAudit({ hostId: h.id, actor: (c.get('actor') ?? h).did, action: 'source.removed', subject: s.id, detail: { removed } })
   return c.json({ removed })
+})
+
+/* ── verified source (PRD §7 provenance) ──────────────────────────────────── */
+
+sourceRoutes.post('/:id/verify', async (c) => {
+  const h = requireHost(c)
+  const s = await ownSource(h.id, c.req.param('id'))
+  const token = await verificationToken(s)
+  return c.json({ token, instructions: `Put "${token}" anywhere in your calendar's description (or in one upcoming event's description), wait a minute, then check.` })
+})
+
+sourceRoutes.post('/:id/verify/check', async (c) => {
+  const h = requireHost(c)
+  const s = await ownSource(h.id, c.req.param('id'))
+  rateLimit(`verify:${s.id}`, 6, 600_000)
+  const r = await checkVerification(s)
+  if (r.verified) {
+    await getDb().update(source).set({ claimed: true }).where(eq(source.id, s.id))
+    const raised = await raiseProvenance(h.id, 'source', (c.get('actor') ?? h).did, { sourceId: s.id })
+    return c.json({ verified: true, provenanceLevel: raised ? 'source' : h.provenanceLevel })
+  }
+  return c.json({ verified: false, reason: r.reason })
 })
 
 /* ── rules ──────────────────────────────────────────────────────────────────── */

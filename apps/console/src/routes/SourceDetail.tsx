@@ -10,6 +10,7 @@ import { VISIBILITY_LABEL, platformLabel } from '../components/Badges'
 import { PageState } from '../components/PageState'
 import { Page } from '../components/Shell'
 import { OPTIONS, VisibilityPicker } from '../components/VisibilityPicker'
+import { VerifySource, canVerify } from '../components/VerifySource'
 import { sourceStatusText } from './Dashboard'
 
 const MATCH_KINDS: Array<{ key: keyof Rule['match']; label: string; kind: 'text' | 'select' }> = [
@@ -109,6 +110,8 @@ export function SourceDetailRoute() {
               </div>
               {saveRules.error ? <p className="notice notice-warn">{plainError(saveRules.error)}</p> : null}
             </section>
+
+            {canVerify(q.data.type) ? <VerifySource sourceId={id} /> : null}
 
             <section className="grid gap-2">
               <h2>Sync history</h2>

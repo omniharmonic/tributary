@@ -19,6 +19,7 @@ import { isPushPreview, loadPreview } from '../../lib/preview.js'
 import { clearCookieHeader, cookieHeader, createSession, destroySession, SESSION_COOKIE } from '../../lib/sessions.js'
 import { connectSource } from '../../lib/sources.js'
 import { queueExtraction } from './confirmations.js'
+import { isOwnDomainHandle, raiseProvenance } from '../../lib/provenance.js'
 import { resolvePdsEndpoint } from '@tributary/publisher'
 import { ApiError, body, clientIp, rateLimit, requireHost, str, type Vars } from '../context.js'
 import type { HostRow } from '../../lib/hosts.js'
@@ -211,6 +212,8 @@ async function refreshOauthProfile(h: HostRow): Promise<void> {
       .update(host)
       .set({ handle: p.handle ?? h.handle, displayName: p.displayName || p.handle || h.displayName })
       .where(eq(host.id, h.id))
+    // A handle that is the host's own domain is the strongest proof we get for free.
+    if (p.handle && isOwnDomainHandle(p.handle)) await raiseProvenance(h.id, 'domain', h.did, { handle: p.handle })
   } catch {
     /* profile is cosmetic */
   }
