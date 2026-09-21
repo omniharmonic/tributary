@@ -191,9 +191,14 @@ function knownHost(u: URL): DetectMatch[] {
     out.push({ type: 'ics', confidence: 0.85, platform: 'libcal', hint: { url: /\.ics$|\/ical/i.test(path) ? u.toString() : `${u.origin}/calendar?cid=-1&t=d&d=0000-00-00&cal=-1&ical=1`, pageUrl: u.toString() }, note: 'LibCal calendars publish an iCal feed under "Subscribe"; paste that link if this one does not work.' })
     return out
   }
-  if (/(^|\.)localist\.com$/.test(h) || /(^|\.)mobilize\.us$/.test(h)) {
-    const platform = /localist/.test(h) ? 'localist' : 'mobilize'
-    out.push({ type: 'ics', confidence: 0.85, platform, hint: { url: platform === 'localist' ? `${u.origin}/calendar.ics` : `${u.origin}${path.replace(/\/?$/, '')}/events.ics`, pageUrl: u.toString() } })
+  if (/(^|\.)localist\.com$/.test(h)) {
+    out.push({ type: 'localist', confidence: 0.9, platform: 'localist', hint: { origin: u.origin, pageUrl: u.toString() } })
+    out.push({ type: 'ics', confidence: 0.6, platform: 'localist', hint: { url: `${u.origin}/calendar.ics`, pageUrl: u.toString() } })
+    return out
+  }
+  if (/(^|\.)mobilize\.us$/.test(h)) {
+    const slug = path.split('/').filter(Boolean)[0]
+    if (slug) out.push({ type: 'mobilize', confidence: 0.9, platform: 'mobilize', hint: { slug, pageUrl: u.toString(), organizationId: /^\d+$/.test(slug) ? slug : undefined } })
     return out
   }
   if (/(^|\.)humanitix\.com$/.test(h)) {
@@ -348,7 +353,8 @@ export async function detect(input: DetectRequest, ctx: DetectCtx): Promise<Dete
     else if (sq) results.push({ type: 'squarespace', confidence: 0.4, platform: 'squarespace', hint: { url: fetched.finalUrl.split('?')[0] }, note: 'This is a Squarespace site, but this page is not its events collection. Paste the events page.' })
   }
   if (meta.platformHints.includes('localist') && (await probeLocalist(origin, ctx))) {
-    results.push({ type: 'ics', confidence: 0.9, platform: 'localist', hint: { url: `${origin}/calendar.ics`, pageUrl: fetched.finalUrl } })
+    results.push({ type: 'localist', confidence: 0.92, platform: 'localist', hint: { origin, pageUrl: fetched.finalUrl } })
+    results.push({ type: 'ics', confidence: 0.6, platform: 'localist', hint: { url: `${origin}/calendar.ics`, pageUrl: fetched.finalUrl } })
   }
   results.push(...fromFingerprints(url, fetched, meta))
   if (results.some((m) => m.confidence >= 0.8)) return rank(results)
@@ -398,6 +404,10 @@ export function describeMatch(m: DetectMatch): string {
       return h.list ? `Events listed on ${hostOf(h.url)}` : m.platform === 'web' ? `Event page on ${hostOf(h.url)}` : `${cap(m.platform)} event`
     case 'sheet':
       return 'Google Sheet'
+    case 'localist':
+      return `Localist calendar at ${hostOf(h.origin ?? h.pageUrl)}`
+    case 'mobilize':
+      return `Mobilize organisation ${String(h.slug ?? h.organizationId ?? '')}`.trim()
     case 'upload':
       return h.kind === 'ics' ? `Calendar file ${String(h.name ?? '')}`.trim() : `Spreadsheet ${String(h.name ?? '')}`.trim()
     case 'extract':

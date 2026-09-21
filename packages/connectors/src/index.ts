@@ -15,6 +15,8 @@ import { manualConnector } from './manual/index.js'
 import { apiConnector } from './api/index.js'
 import { sheetConnector } from './sheet/index.js'
 import { eventbriteConnector } from './eventbrite/index.js'
+import { localistConnector } from './localist/index.js'
+import { mobilizeConnector } from './mobilize/index.js'
 
 export * from './sdk.js'
 export { PUSH_SOURCE_TYPES } from './api/index.js'
@@ -36,6 +38,8 @@ export const CONNECTORS: ReadonlyArray<Connector<any, any>> = [
   apiConnector,
   sheetConnector,
   eventbriteConnector,
+  localistConnector,
+  mobilizeConnector,
 ]
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

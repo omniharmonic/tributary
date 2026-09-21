@@ -16,7 +16,7 @@ Deployed: https://tributary.freeskool.directory (see `deployment.md`).
 | F8 | Updates and cancellations | Done — grace periods in `reconcile.ts` |
 | F9 | No duplicate writes | Done — smoke test asserts zero writes on re-sync |
 | F10 | Extraction with confirmation | Built (one-box, email, Telegram all land in the queue; the identity step redirects to `/confirm/:id`); extraction is off in production until `EXTRACT_MODEL_API_KEY` is set |
-| F11 | Email in | Handler built; the Cloudflare Email Worker is not deployed |
+| F11 | Email in | Handler built; the Cloudflare Email Worker is written (`infra/email-worker`) but not deployed (needs the zone on Cloudflare) |
 | F12 | Claim | Not built (Listed tier waits for counsel; there is nothing to claim yet) |
 | F13 | Takeover and exit | Take-control, revoke, delete done; migration to a second PDS not exercised |
 | F14 | Listed tier limits | `toListedRecord` exists; the tier is not open |
@@ -39,9 +39,9 @@ Deployed: https://tributary.freeskool.directory (see `deployment.md`).
 
 ## Connectors
 
-Done: `ics`, `gcal-public` (API key path untested without a key), `luma`, `meetup`, `tribe`, `squarespace`, `jsonld-page`, `upload` (.ics, .csv with column mapper), `sheet` (Google Sheets shared by link, column mapper in the preview), `eventbrite` (private token, encrypted per source), `manual`, `api`/webhook/mcp, `email`, `extract`.
+Done: `ics`, `gcal-public` (API key path untested without a key), `luma`, `meetup`, `tribe`, `squarespace`, `jsonld-page`, `upload` (.ics, .csv with column mapper), `sheet` (Google Sheets shared by link, column mapper in the preview), `eventbrite` (private token, encrypted per source), `localist` (public API, native photos), `mobilize` (public API, timeslots as occurrences), `manual`, `api`/webhook/mcp, `email`, `extract`.
 `telegram` bot (link by code, forward or photo → confirm buttons; needs `TELEGRAM_BOT_TOKEN` + `TELEGRAM_WEBHOOK_SECRET`).
-Not built: Google OAuth, Microsoft Graph, Discord, Localist, Mobilize, bookmarklet.
+Not built: Google OAuth, Microsoft Graph, Discord, bookmarklet.
 
 ## Operations
 

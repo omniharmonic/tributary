@@ -1,0 +1,9 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "tributary-inbound-email",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-01",
+  // Secrets (set with `wrangler secret put`): TRIBUTARY_URL, INBOUND_EMAIL_SECRET
+  "send_email": [],
+  "observability": { "enabled": true }
+}
