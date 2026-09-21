@@ -12,3 +12,4 @@ apps/*/.dev-mail.log
 coverage/
 *.log
 /tmp/
+.playwright-mcp/

@@ -6,6 +6,8 @@ import { Hono } from 'hono'
 import { serveStatic } from '@hono/node-server/serve-static'
 import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
+import { ConnectorError } from '@tributary/connectors'
+import { UnsafeUrlError, FetchLimitError, RobotsDisallowedError } from '@tributary/ssrf-fetch'
 import { config } from '../config.js'
 import { describeError, log } from '../lib/logging.js'
 import { ApiError, authenticate, type Vars } from './context.js'
@@ -29,6 +31,24 @@ export function createApp(): Hono<{ Variables: Vars }> {
 
   app.onError((err, ctx) => {
     if (err instanceof ApiError) return ctx.json({ error: err.code, message: err.message }, err.status as 400)
+    // A source we could not read is the host's problem to fix, said plainly (never a 500).
+    if (err instanceof ConnectorError) {
+      const plain: Record<string, string> = {
+        NotFound: 'We could not find a calendar at that address. Check that the link is public and try again.',
+        Gone: 'That calendar has been removed at the source.',
+        Forbidden: 'That calendar is not public. Make it public at the source, or upload an .ics file.',
+        RateLimited: 'The source asked us to slow down. Try again in a few minutes.',
+        Unparseable: 'We could not read what that address sent back.',
+        Unsupported: 'That kind of source is not supported yet.',
+        Network: 'We could not reach that address.',
+        TooLarge: 'That feed is too large to read.',
+        Other: 'Something went wrong reading that source.',
+      }
+      return ctx.json({ error: err.code === 'Unsupported' ? 'SourceUnsupported' : 'SourceUnreachable', message: plain[err.code] ?? plain.Other }, 400)
+    }
+    if (err instanceof UnsafeUrlError || err instanceof RobotsDisallowedError || err instanceof FetchLimitError) {
+      return ctx.json({ error: 'SourceUnreachable', message: err instanceof RobotsDisallowedError ? 'That site asks crawlers not to read that page. Try the feed link, an .ics upload, or the form.' : 'We could not fetch that address.' }, 400)
+    }
     const e = err as { status?: number; code?: string }
     if (typeof e.status === 'number' && e.status < 500 && typeof e.code === 'string') return ctx.json({ error: e.code, message: err.message }, e.status as 400)
     log.error('unhandled error', { path: new URL(ctx.req.url).pathname, detail: describeError(err) })
