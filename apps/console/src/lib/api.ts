@@ -13,7 +13,10 @@ import type {
   EventOverride,
   HandleCheck,
   Inbound,
+  JoinResult,
   LedgerEvent,
+  OrgRole,
+  OrgRoleName,
   Me,
   Preview,
   PublicConfig,
@@ -114,6 +117,13 @@ export interface Api {
   deleteInvite(eventId: string, inviteId: string): Promise<void>
   invitePeople(eventId: string, body: { handles: string[]; emails: string[] }): Promise<{ resolved: Array<{ handle: string; did: string }>; pendingEmails: string[] }>
   decideRequest(eventId: string, requestId: string, action: 'approve' | 'deny'): Promise<void>
+
+  /** Redeem a join link as the signed-in viewer. */
+  redeemInvite(token: string): Promise<JoinResult>
+
+  roles(): Promise<{ roles: OrgRole[] }>
+  addRole(body: { handle: string; role: OrgRoleName }): Promise<void>
+  removeRole(did: string): Promise<void>
 }
 
 const qs = (o: Record<string, string | number | undefined>) => {
@@ -190,6 +200,12 @@ export const realApi: Api = {
   deleteInvite: (eventId, inviteId) => call('DELETE', `/api/events/${eventId}/invites/${inviteId}`),
   invitePeople: (eventId, body) => call('POST', `/api/events/${eventId}/invite-people`, body),
   decideRequest: (eventId, requestId, action) => call('POST', `/api/events/${eventId}/requests/${requestId}`, { action }),
+
+  redeemInvite: (token) => call('POST', `/api/join/${encodeURIComponent(token)}`, {}),
+
+  roles: () => call('GET', '/api/me/roles'),
+  addRole: (body) => call('POST', '/api/me/roles', body),
+  removeRole: (did) => call('DELETE', `/api/me/roles/${encodeURIComponent(did)}`),
 }
 
 let api: Api = realApi

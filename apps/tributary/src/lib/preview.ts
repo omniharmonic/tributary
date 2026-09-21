@@ -18,6 +18,7 @@ import { httpClient } from './http-client.js'
 import { id } from './ids.js'
 import { log } from './logging.js'
 import { extractEvents, type ExtractedEvent } from './extract.js'
+import { guessMapping, parseCsv, rowsToRawEvents, type CsvMapping } from './csv.js'
 
 export const PREVIEW_TTL_MS = 2 * 3_600_000
 
@@ -36,6 +37,7 @@ export interface PreviewSummary {
   signals: { private: number; conferenceLinks: number; noImage: number; inferredTz: number }
   needsConfirmation: boolean
   extracted?: ExtractedEvent[]
+  csv?: { headers: string[]; mapping: CsvMapping; sample: Array<Record<string, string>>; unmapped: string[]; dropped: number }
 }
 
 export async function buildPreview(match: DetectMatch, file?: DetectFile): Promise<{ previewId: string; summary: PreviewSummary; expiresAt: Date }> {
@@ -47,6 +49,7 @@ export async function buildPreview(match: DetectMatch, file?: DetectFile): Promi
   let extracted: ExtractedEvent[] | undefined
   let tz = c.REGION_TZ
   let notes: string[] = []
+  let csvInfo: PreviewSummary['csv'] | undefined
 
   if (match.type === 'extract') {
     const kind = String(match.hint.kind ?? 'text')
@@ -64,7 +67,16 @@ export async function buildPreview(match: DetectMatch, file?: DetectFile): Promi
       if (parsed.meta.tz) tz = parsed.meta.tz
       if (parsed.dropped) notes.push(`${parsed.dropped} entr${parsed.dropped === 1 ? 'y' : 'ies'} could not be read and were skipped.`)
     } else {
-      throw new ApiError(400, 'SourceUnsupported', 'Spreadsheet uploads are coming soon. For now, paste a calendar link or upload an .ics file.')
+      const parsed = parseCsv(file.bytes.toString('utf8'))
+      if (parsed.headers.length === 0) throw new ApiError(400, 'InvalidInput', 'That spreadsheet has no header row.')
+      const override = (match.hint.mapping && typeof match.hint.mapping === 'object' ? (match.hint.mapping as CsvMapping) : {}) as CsvMapping
+      const mapping: CsvMapping = { ...guessMapping(parsed.headers), ...override }
+      const out = rowsToRawEvents(parsed, mapping, tz, String(cfg.hash))
+      raws = out.events
+      csvInfo = { headers: parsed.headers, mapping, sample: parsed.rows.slice(0, 3), unmapped: out.unmapped, dropped: out.dropped }
+      cfg.mapping = mapping
+      if (!mapping.name || !mapping.start) notes.push('Tell us which columns hold the event name and the start date.')
+      else if (out.dropped) notes.push(`${out.dropped} row${out.dropped === 1 ? '' : 's'} had no name or an unreadable date and were skipped.`)
     }
     cfg.tz = tz
   } else {
@@ -120,6 +132,7 @@ export async function buildPreview(match: DetectMatch, file?: DetectFile): Promi
     signals,
     needsConfirmation: match.type === 'extract',
     extracted,
+    csv: csvInfo,
   }
   const previewId = id('pv')
   const expiresAt = new Date(Date.now() + PREVIEW_TTL_MS)

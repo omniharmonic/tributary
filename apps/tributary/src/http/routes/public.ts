@@ -5,7 +5,7 @@
  */
 import { Hono } from 'hono'
 import { and, desc, eq, gte, inArray, lte, sql } from 'drizzle-orm'
-import { toCard, type NormalizedEvent } from '@tributary/event-model'
+import { groupDuplicates, toCard, type NormalizedEvent } from '@tributary/event-model'
 import { config } from '../../config.js'
 import { getDb, getPool } from '../../db/index.js'
 import { host, imageCache, sourceEvent } from '../../db/schema.js'
@@ -119,7 +119,7 @@ publicRoutes.get('/events', async (c) => {
     .where(and(eq(host.region, region), inArray(sourceEvent.state, ['live', 'cancelled']), inArray(sourceEvent.visibility, PUBLIC_VIS), gte(sourceEvent.startsAt, from), lte(sourceEvent.startsAt, to)))
     .orderBy(sourceEvent.startsAt)
     .limit(limit)
-  let cards = rows.map(({ e, h }) => publicCard(e, h))
+  let cards = groupDuplicates(rows.map(({ e, h }) => ({ ...publicCard(e, h), rank: h.door === 'listed' ? 1 : 0, publishedAt: e.firstSeen.toISOString() }))).map(({ rank: _r, publishedAt: _p, ...card }) => card)
   if (category) cards = cards.filter((x) => x.category === category || x.tags.includes(category))
   if (q) cards = cards.filter((x) => `${x.name} ${x.place ?? ''} ${x.excerpt ?? ''} ${x.host.displayName}`.toLowerCase().includes(q))
   c.header('Cache-Control', 'public, max-age=60')
@@ -284,7 +284,8 @@ publicRoutes.get('/stats', async (c) => {
   const [live] = await getDb().select({ n: sql<number>`count(*)` }).from(sourceEvent).where(and(eq(sourceEvent.state, 'live'), gte(sourceEvent.startsAt, new Date())))
   const [complete] = await getDb().select({ n: sql<number>`count(*)` }).from(sourceEvent).where(and(eq(sourceEvent.state, 'live'), gte(sourceEvent.startsAt, new Date()), sql`${sourceEvent.imageHash} is not null`))
   const recent = await getDb().select().from(sourceEvent).orderBy(desc(sourceEvent.firstSeen)).limit(1)
-  return c.json({ hosts: Number(hosts?.n ?? 0), liveUpcoming: Number(live?.n ?? 0), withImage: Number(complete?.n ?? 0), lastPublishedAt: recent[0]?.firstSeen ?? null })
+  const { lastReports } = await import('../../jobs/checks.js')
+  return c.json({ hosts: Number(hosts?.n ?? 0), liveUpcoming: Number(live?.n ?? 0), withImage: Number(complete?.n ?? 0), lastPublishedAt: recent[0]?.firstSeen ?? null, checks: lastReports })
 })
 
 export { str }

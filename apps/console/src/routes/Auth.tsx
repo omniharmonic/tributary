@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { api } from '../lib/api'
 import { plainError } from '../lib/errors'
+import { rememberNext, takeNext } from '../lib/next'
 import { Footer, Page } from '../components/Shell'
 
 export function VerifyRoute() {
@@ -13,7 +14,8 @@ export function VerifyRoute() {
     mutationFn: () => api.verify(search.token ?? ''),
     onSuccess: async (r) => {
       await qc.invalidateQueries({ queryKey: ['me'] })
-      const target = r.redirect ?? '/dashboard?welcome=1'
+      // A destination remembered before the magic link (a join link, say) wins over the default landing.
+      const target = takeNext() ?? r.redirect ?? '/dashboard?welcome=1'
       const url = new URL(target, window.location.origin)
       void navigate({ to: url.pathname, search: Object.fromEntries(url.searchParams) as Record<string, string> })
     },
@@ -44,8 +46,14 @@ export function VerifyRoute() {
 }
 
 export function LoginRoute() {
+  const search = useSearch({ strict: false }) as { next?: string }
   const [email, setEmail] = useState('')
-  const login = useMutation({ mutationFn: () => api.login(email.trim()) })
+  const login = useMutation({
+    mutationFn: () => {
+      rememberNext(search.next)
+      return api.login(email.trim())
+    },
+  })
   return (
     <>
       <Page title="Sign in" lede="Hosts sign in with the email they published with. We send a link; there is no password unless you set one.">

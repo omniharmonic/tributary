@@ -17,8 +17,9 @@ import { describeError, log } from '../lib/logging.js'
 import { sendMail } from '../lib/mail.js'
 import { purgeOauthState } from '../lib/oauth.js'
 import { runSource } from '../pipeline/run.js'
+import { leakCheck, privacyAudit, relayMonitor } from './checks.js'
 
-export const QUEUES = { sync: 'sync-source', tick: 'scheduler-tick', notices: 'host-notices', retention: 'retention', digest: 'monthly-digest' } as const
+export const QUEUES = { sync: 'sync-source', tick: 'scheduler-tick', notices: 'host-notices', retention: 'retention', digest: 'monthly-digest', checks: 'nightly-checks', relay: 'relay-monitor' } as const
 
 let boss: PgBoss | undefined
 
@@ -28,7 +29,7 @@ export async function startJobs(): Promise<PgBoss> {
   boss.on('error', (err: unknown) => log.error('pg-boss error', { detail: describeError(err) }))
   await boss.start()
   await boss.createQueue(QUEUES.sync, { policy: 'stately', retryLimit: 2, retryDelay: 60, expireInSeconds: 30 * 60 })
-  for (const q of [QUEUES.tick, QUEUES.notices, QUEUES.retention, QUEUES.digest]) await boss.createQueue(q, { policy: 'singleton' })
+  for (const q of [QUEUES.tick, QUEUES.notices, QUEUES.retention, QUEUES.digest, QUEUES.checks, QUEUES.relay]) await boss.createQueue(q, { policy: 'singleton' })
 
   await boss.work<{ sourceId: string; trigger?: 'schedule' | 'manual' | 'push' | 'first' }>(QUEUES.sync, { batchSize: 1 }, async (jobs) => {
     for (const job of jobs) {
@@ -57,11 +58,20 @@ export async function startJobs(): Promise<PgBoss> {
   await boss.work(QUEUES.digest, async () => {
     await sendMonthlyDigests()
   })
+  await boss.work(QUEUES.checks, async () => {
+    await privacyAudit()
+    await leakCheck()
+  })
+  await boss.work(QUEUES.relay, async () => {
+    await relayMonitor()
+  })
 
   await boss.schedule(QUEUES.tick, '* * * * *')
   await boss.schedule(QUEUES.notices, '17 * * * *')
   await boss.schedule(QUEUES.retention, '30 3 * * *')
   await boss.schedule(QUEUES.digest, '0 15 1 * *')
+  await boss.schedule(QUEUES.checks, '45 4 * * *')
+  await boss.schedule(QUEUES.relay, '5 6 * * *')
   log.info('jobs started')
   return boss
 }

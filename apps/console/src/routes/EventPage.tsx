@@ -92,7 +92,7 @@ function EventBody({ e, signedIn, onRequest, requesting, requestError }: { e: Aw
                   </div>
                 ) : (
                   <p className="text-sm">
-                    <Link to="/login" className="underline underline-offset-2">
+                    <Link to="/login" search={{ next: `/e/${encodeURIComponent(e.did)}/${encodeURIComponent(e.rkey)}` }} className="underline underline-offset-2">
                       Sign in
                     </Link>{' '}
                     to request a place.

@@ -1,10 +1,12 @@
 import { Link, useNavigate, useParams } from '@tanstack/react-router'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { api } from '../lib/api'
 import { plainError } from '../lib/errors'
 import { useMe } from '../lib/queries'
-import type { Visibility } from '../lib/types'
+import type { DetectMatch, Visibility } from '../lib/types'
+import { movePendingFile, pendingFile } from '../lib/pending-file'
+import { CsvMapper } from '../components/CsvMapper'
 import { platformLabel } from '../components/Badges'
 import { EventCard } from '../components/EventCard'
 import { PublishingNotice } from '../components/HonestTermsNotice'
@@ -15,8 +17,24 @@ import { VisibilityPicker } from '../components/VisibilityPicker'
 export function PreviewRoute() {
   const { previewId } = useParams({ strict: false }) as { previewId: string }
   const navigate = useNavigate()
+  const qc = useQueryClient()
   const { me } = useMe()
   const q = useQuery({ queryKey: ['preview', previewId], queryFn: () => api.getPreview(previewId), retry: false })
+
+  // A CSV column change re-reads the same file with the new mapping; the result is a new preview.
+  const file = pendingFile(previewId)
+  const remap = useMutation({
+    mutationFn: (mapping: Record<string, string | null>) => {
+      if (!file) throw new Error('The file is no longer in this tab. Go back and upload it again.')
+      const match: DetectMatch = { type: 'upload', platform: 'file', confidence: 1, label: file.name, hint: { kind: 'csv', name: file.name, mapping } }
+      return api.preview(match, file)
+    },
+    onSuccess: (p) => {
+      movePendingFile(previewId, p.previewId)
+      qc.setQueryData(['preview', p.previewId], p)
+      void navigate({ to: '/preview/$previewId', params: { previewId: p.previewId }, replace: true })
+    },
+  })
   const [visibility, setVisibility] = useState<Visibility>('public')
   const [group, setGroup] = useState('')
   useEffect(() => {
@@ -55,6 +73,13 @@ export function PreviewRoute() {
                     <li key={i}>{n}</li>
                   ))}
                 </ul>
+              ) : null}
+
+              {p.csv ? <CsvMapper csv={p.csv} onChange={(m) => remap.mutate(m)} busy={remap.isPending} fileLost={!file} /> : null}
+              {remap.error ? (
+                <p className="notice notice-warn" role="alert">
+                  {plainError(remap.error)}
+                </p>
               ) : null}
 
               <ul className="grid gap-5">

@@ -5,7 +5,7 @@
 import { DateTime } from 'luxon'
 import type { Api } from './api'
 import { ApiError } from './errors'
-import type { ApiKey, Confirmation, DetectMatch, EventCard, LedgerEvent, Me, Preview, PublicEvent, PublicHost, Rule, Source, SourceDetail, Visibility } from './types'
+import type { ApiKey, Confirmation, CsvInfo, DetectMatch, EventCard, LedgerEvent, Me, OrgRole, Preview, PublicEvent, PublicHost, Rule, Source, SourceDetail, Visibility } from './types'
 
 const TZ = 'America/Denver'
 const now = DateTime.now().setZone(TZ)
@@ -119,6 +119,7 @@ const confirmations: Confirmation[] = [
 let keys: ApiKey[] = [{ id: 'k1', name: 'Zapier', createdAt: iso(now.minus({ days: 5 })), lastUsedAt: iso(now.minus({ hours: 5 })) }]
 let inbound = { email: 'add+7f3k2q@in.freeskool.directory', webhookUrl: 'https://tributary.freeskool.directory/api/webhook/7f3k2q', webhookSecret: 'whsec_9f1d0c2a7b3e4d5f6a7b8c9d' }
 const previews = new Map<string, Preview>()
+let roles: OrgRole[] = [{ did: 'did:plc:editorexampleaaaaaaaaaa', role: 'editor' }]
 const delay = (ms = 250) => new Promise((r) => setTimeout(r, ms))
 const requireMe = () => {
   if (!me) throw new ApiError('Unauthorized', 'Sign in to continue.', 401)
@@ -141,9 +142,23 @@ function detectFor(input: string, file?: File): DetectMatch[] {
   return [{ type: 'extract', platform: 'text', confidence: 0.85, label: 'Described event', hint: { text: s }, note: 'We will turn this into an event and ask you to confirm before it is published.' }]
 }
 
+const CSV_HEADERS = ['Title', 'Date', 'Start time', 'End time', 'Venue', 'Details', 'Link', 'Poster']
+const CSV_SAMPLE = [
+  { Title: 'Seed Swap', Date: '2026-10-04', 'Start time': '10:00', 'End time': '13:00', Venue: 'Boulder Public Library', Details: 'Bring seeds, take seeds.', Link: 'https://frontrangeseeds.org/swap', Poster: '' },
+  { Title: 'Garden Planning Night', Date: '2026-10-12', 'Start time': '18:30', 'End time': '20:00', Venue: 'Growing Gardens', Details: 'Plan next year together.', Link: '', Poster: '' },
+  { Title: 'Harvest Potluck', Date: '2026-10-25', 'Start time': '17:00', 'End time': '', Venue: '', Details: 'Bring a dish.', Link: '', Poster: '' },
+]
+
+function csvInfoFor(mapping?: Record<string, string | null>): CsvInfo {
+  const m: CsvInfo['mapping'] = mapping ?? { name: 'Title', start: 'Date', startTime: 'Start time', end: null, endTime: 'End time', location: 'Venue', description: 'Details', url: 'Link', image: 'Poster', price: null, tags: null, id: null }
+  const used = new Set(Object.values(m).filter((v): v is string => !!v))
+  return { headers: CSV_HEADERS, mapping: m, sample: CSV_SAMPLE, unmapped: CSV_HEADERS.filter((h) => !used.has(h)) }
+}
+
 function previewFor(match: DetectMatch): Preview {
   const id = `pv_${Math.random().toString(36).slice(2, 9)}`
   const structured = match.type !== 'extract'
+  const csv = match.type === 'upload' && match.hint.kind === 'csv' ? csvInfoFor(match.hint.mapping as Record<string, string | null> | undefined) : undefined
   const cards = structured
     ? publicEvents.slice(0, 6).map((e, i) => ({ ...e.card, key: `p${i}`, platform: match.platform, visibility: (i === 4 ? 'held' : 'public') as Visibility }))
     : [{ ...card({ key: 'x', name: 'Repair café, first Saturdays', start: at(11, 10), end: at(11, 13), place: 'the library', platform: 'extract', sourceUrl: '' }), needsConfirmation: true, confidence: { name: 0.96, start: 0.7, place: 0.55 } }]
@@ -157,6 +172,7 @@ function previewFor(match: DetectMatch): Preview {
     defaultVisibility: 'public',
     signals: { private: structured ? 1 : 0, conferenceLinks: structured ? 2 : 0 },
     expiresAt: iso(now.plus({ hours: 1 })),
+    ...(csv ? { csv, count: csv.mapping.name ? 3 : 0, upcoming: csv.mapping.name ? 3 : 0, notes: csv.mapping.name ? ['Check the column matching below; the cards update as you change it.'] : ['Tell us which column holds the event name.'] } : {}),
   }
   previews.set(id, p)
   return p
@@ -418,6 +434,34 @@ export const mockApi: Api = {
   async decideRequest() {
     requireMe()
     await delay(200)
+  },
+  async redeemInvite(token) {
+    requireMe()
+    await delay(400)
+    if (token === 'expired') throw new ApiError('NotFound', 'This link has expired or has been used up. Ask the host for a new one.', 404)
+    const gated = publicEvents.find((e) => e.card.visibility === 'gated')
+    if (gated) {
+      gated.requestState = 'approved'
+      gated.revealed = { exactLocation: '2130 Mapleton Ave, Boulder, CO 80304' }
+    }
+    return { spaceUri: `at://${hosts.seeds!.did}/coop.lexicon.space.event.invite/3lxa5`, kind: 'read-join', role: 10 }
+  },
+  async roles() {
+    const m = requireMe()
+    await delay(120)
+    return { roles: [{ did: m.host.did, role: 'owner' }, ...roles] }
+  },
+  async addRole(body) {
+    requireMe()
+    await delay(300)
+    if (!body.handle.includes('.')) throw new ApiError('InvalidInput', 'That handle could not be resolved.', 400)
+    const did = `did:plc:${body.handle.replace(/[^a-z0-9]/g, '').slice(0, 24).padEnd(24, 'x')}`
+    roles = [...roles.filter((r) => r.did !== did), { did, role: body.role }]
+  },
+  async removeRole(did) {
+    requireMe()
+    await delay(200)
+    roles = roles.filter((r) => r.did !== did)
   },
 }
 

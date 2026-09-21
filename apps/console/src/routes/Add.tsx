@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { api } from '../lib/api'
 import { plainError } from '../lib/errors'
 import type { DetectMatch } from '../lib/types'
+import { keepPendingFile } from '../lib/pending-file'
 import { platformLabel } from '../components/Badges'
 import { OneBox, type OneBoxSubmit } from '../components/OneBox'
 import { Footer, Page } from '../components/Shell'
@@ -23,7 +24,11 @@ export function AddRoute() {
   })
   const preview = useMutation({
     mutationFn: (v: { match: DetectMatch; file?: File }) => api.preview(v.match, v.file),
-    onSuccess: (p) => void navigate({ to: '/preview/$previewId', params: { previewId: p.previewId } }),
+    onSuccess: (p, v) => {
+      // The preview page needs the file again to re-run a CSV column change.
+      keepPendingFile(p.previewId, v.file)
+      void navigate({ to: '/preview/$previewId', params: { previewId: p.previewId } })
+    },
   })
   const busy = detect.isPending || preview.isPending
   const error = detect.error ?? preview.error

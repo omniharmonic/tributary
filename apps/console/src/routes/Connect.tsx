@@ -3,6 +3,7 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { api } from '../lib/api'
 import { plainError } from '../lib/errors'
+import { rememberNext } from '../lib/next'
 import { useConfig } from '../lib/queries'
 import type { Visibility } from '../lib/types'
 import { Footer, Page } from '../components/Shell'
@@ -19,7 +20,7 @@ function suggestLabel(name: string): string {
 
 export function ConnectRoute() {
   const cfg = useConfig()
-  const search = useSearch({ strict: false }) as { previewId?: string; visibility?: Visibility; error?: string; handle?: string }
+  const search = useSearch({ strict: false }) as { previewId?: string; visibility?: Visibility; error?: string; handle?: string; next?: string }
   const [email, setEmail] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [label, setLabel] = useState('')
@@ -39,10 +40,16 @@ export function ConnectRoute() {
   const localInvalid = label.length > 0 && !HANDLE_RE.test(label)
 
   const signup = useMutation({
-    mutationFn: () => api.signup({ email: email.trim(), displayName: displayName.trim(), handle: label, previewId: search.previewId, visibility: search.visibility, newsletter: false }),
+    mutationFn: () => {
+      rememberNext(search.next)
+      return api.signup({ email: email.trim(), displayName: displayName.trim(), handle: label, previewId: search.previewId, visibility: search.visibility, newsletter: false })
+    },
   })
   const oauth = useMutation({
-    mutationFn: () => api.oauthStart({ handle: existing.trim().replace(/^@/, ''), previewId: search.previewId, visibility: search.visibility }),
+    mutationFn: () => {
+      rememberNext(search.next)
+      return api.oauthStart({ handle: existing.trim().replace(/^@/, ''), previewId: search.previewId, visibility: search.visibility })
+    },
     onSuccess: (r) => {
       window.location.assign(r.redirectUrl)
     },

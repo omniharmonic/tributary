@@ -51,6 +51,16 @@ export type PreviewCard = EventCard & {
   needsConfirmation?: boolean
 }
 
+/** CSV uploads: how the file's columns map onto event fields, so the host can correct it. */
+export type CsvField = 'name' | 'start' | 'startTime' | 'end' | 'endTime' | 'location' | 'description' | 'url' | 'image' | 'price' | 'tags' | 'id'
+export const CSV_FIELDS: CsvField[] = ['name', 'start', 'startTime', 'end', 'endTime', 'location', 'description', 'url', 'image', 'price', 'tags', 'id']
+export interface CsvInfo {
+  headers: string[]
+  mapping: Partial<Record<CsvField, string | null>>
+  sample: Array<Record<string, string>>
+  unmapped: string[]
+}
+
 export interface Preview {
   previewId: string
   source: {
@@ -68,6 +78,8 @@ export interface Preview {
   defaultVisibility: Visibility
   signals: { private: number; conferenceLinks: number }
   expiresAt: string
+  /** Present for CSV uploads. */
+  csv?: CsvInfo
 }
 
 export type ProvenanceLevel = 'email' | 'source' | 'domain' | 'listed'
@@ -245,4 +257,16 @@ export interface AudienceInfo {
   members: number
   invites: Array<{ id: string; kind: 'join' | 'read' | 'read-join'; expiresAt: string; usesLeft: number | null; url?: string }>
   requests: Array<{ id: string; did: string; handle: string; requestedAt: string; state: 'pending' | 'approved' | 'denied' }>
+}
+
+export type OrgRoleName = 'owner' | 'editor' | 'viewer'
+export interface OrgRole {
+  did: string
+  role: OrgRoleName
+}
+
+export interface JoinResult {
+  spaceUri: string
+  kind: 'join' | 'read' | 'read-join'
+  role: number | null
 }

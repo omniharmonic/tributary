@@ -25,7 +25,7 @@ Response `200`:
 `matches` is ranked; the console shows the first and offers the rest under "not right?". `type` is a `SourceType` from `@tributary/event-model`. For `extract` inputs (flyer, text, unstructured page) the match has `type: "extract"` and `note` explains that confirmation will be needed.
 
 ### `POST /api/preview`
-Body: `{ "match": <one of the matches above> }` or multipart with `file`.
+Body: `{ "match": <one of the matches above> }` or multipart with `file` plus a `match` JSON string field. For CSV uploads the response also carries `csv: { headers, mapping, sample, unmapped, dropped }`; re-POST with `match.hint.mapping` set to correct the column mapping.
 Fetches the source once (no persistence beyond a short-lived preview cache) and returns:
 ```json
 {
@@ -44,6 +44,9 @@ Fetches the source once (no persistence beyond a short-lived preview cache) and 
 
 ### `GET /api/preview/:previewId`
 Re-read a preview (the identity step comes back to it).
+
+### `GET /api/public/config`
+`{ region: { slug, name, tz }, handleDomain, brand, adapterName, extraction }`.
 
 ## Identity
 
@@ -156,6 +159,12 @@ For `gated`, `members`, `invite` events: `{ "spaceUri", "policy", "members": n, 
 
 ### `POST /api/events/:id/invite-people`
 `{ "handles": ["alice.bsky.social"], "emails": ["b@example.org"] }` → `{ "resolved": [ { "handle", "did" } ], "pendingEmails": [ … ] }`.
+
+### `POST /api/join/:token`
+Redeem a join link as the signed-in viewer → `{ spaceUri, kind, role }`.
+
+### `POST /api/public/events/:did/:rkey/request`
+A signed-in viewer asks for a place on a gated event → `{ state }`.
 
 ### `POST /api/events/:id/requests/:requestId`
 `{ "action": "approve" | "deny" }`.
