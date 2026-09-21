@@ -1,0 +1,32 @@
+{
+  "name": "tributary",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Tributary \u2014 an open adapter that publishes community events from wherever they already live (feeds, pages, files, email, text) to AT Protocol, with a regional identity layer and a permission layer (the Gate).",
+  "author": "Benjamin Life (@omniharmonic)",
+  "license": "AGPL-3.0-or-later",
+  "packageManager": "pnpm@10.18.2",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "pnpm -r --parallel --filter ./apps/* dev",
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck",
+    "infra:up": "docker compose -f infra/compose.yml up -d",
+    "infra:down": "docker compose -f infra/compose.yml down"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.2"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "sharp",
+      "esbuild",
+      "@tailwindcss/oxide",
+      "protobufjs",
+      "better-sqlite3"
+    ]
+  }
+}

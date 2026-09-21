@@ -1,0 +1,14 @@
+node_modules/
+dist/
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+infra/data/
+infra/pds.env
+infra/production/.env
+apps/*/.dev-mail.log
+.DS_Store
+coverage/
+*.log
+/tmp/
