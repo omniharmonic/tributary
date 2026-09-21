@@ -28,6 +28,11 @@ echo "== waiting for health"
 for attempt in {1..40}; do
   if curl -fsS -m 10 "https://$HOST/api/public/health" | python3 -c 'import json,sys; h=json.load(sys.stdin); sys.exit(0 if h.get("status")=="ok" else 1)' 2>/dev/null; then
     echo "== released $AFTER"
+    # Keep the three most recent rollback tags per service; older ones only hold disk.
+    for service in tributary gate; do
+      docker images --format '{{.Repository}}:{{.Tag}} {{.CreatedAt}}' "tributary-$service" | grep ':rollback-' | sort -k2 -r | tail -n +4 | cut -d' ' -f1 | xargs -r docker rmi >/dev/null 2>&1 || true
+    done
+    docker image prune -f >/dev/null 2>&1 || true
     exit 0
   fi
   sleep 5
