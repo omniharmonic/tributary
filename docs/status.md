@@ -41,9 +41,9 @@ Deployed: https://tributary.freeskool.directory (see `deployment.md`).
 
 Done: `ics`, `gcal-public` (API key path untested without a key), `luma`, `meetup`, `tribe`, `squarespace`, `jsonld-page`, `upload` (.ics, .csv with column mapper), `sheet` (Google Sheets shared by link, column mapper in the preview), `eventbrite` (private token, encrypted per source), `localist` (public API, native photos), `mobilize` (public API, timeslots as occurrences), `manual`, `api`/webhook/mcp, `email`, `extract`.
 `telegram` bot (link by code, forward or photo → confirm buttons; needs `TELEGRAM_BOT_TOKEN` + `TELEGRAM_WEBHOOK_SECRET`).
-Not built: Google OAuth, Microsoft Graph, Discord, bookmarklet.
+Not built (each needs an external app registration or a token from Benjamin): Google OAuth (A1), Microsoft Graph (A3), Discord (A5).
 
 ## Operations
 
-Done: compose stack, release and backup scripts, nightly backup cron, health endpoint, relay monitor, privacy audit, leak check, outage notices.
-Not done: Photon, Meilisearch, Telegram alerts, monthly restore drill, terms/privacy beyond drafts, DMCA agent.
+Done: compose stack, release and backup scripts, nightly backup cron, restore drill (2026-09-21, dump restored into a scratch database on the box), health endpoint, relay monitor, privacy audit, leak check, outage notices, steward queue (`/steward`, `STEWARD_DIDS` set to Benjamin's Free School DID), bookmarklet, per-run creation cap (250) with a steward note above 50 on a first import, PDS rate-limit backoff.
+Not done: Photon, Meilisearch, Telegram alerts, terms/privacy beyond drafts, DMCA agent.
