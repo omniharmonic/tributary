@@ -80,7 +80,9 @@ export function normalize(raw: RawEvent, ctx: NormalizeContext): NormalizedEvent
   if (!name) throw new NormalizeError('event has no name', raw.externalId)
 
   const tz = isValidZone(raw.tz) ? raw.tz : ctx.defaultTz
-  const tzInferred = !isValidZone(raw.tz)
+  // The zone is only a guess when the source gave a wall-clock time with no zone and no
+  // offset. An explicit offset pins the instant; the display zone is then the region's.
+  const tzInferred = !isValidZone(raw.tz) && !raw.allDay && !HAS_OFFSET.test(raw.start.trim())
   let start: DateTime
   let end: DateTime | undefined
   try {
@@ -102,11 +104,15 @@ export function normalize(raw: RawEvent, ctx: NormalizeContext): NormalizedEvent
   const scrubbedDescription = redactContacts(scrubbed[0])
   const scrubbedLocation = scrubbed[1]
 
-  const locations = locationsFrom({ ...raw, location: scrubbedLocation })
+  // A "location" that is a bare URL (Luma and Meetup do this for online events) is a
+  // link, not a place.
+  const locationIsUrl = !!scrubbedLocation && /^https?:\/\/\S+$/i.test(scrubbedLocation.trim())
+  const locations = locationsFrom({ ...raw, location: locationIsUrl ? undefined : scrubbedLocation })
   const hasPlace = locations.some((l) => l.name || l.street || l.locality || l.lat !== undefined)
 
   const sourceUrl =
     canonicalUrl(raw.url) ??
+    (locationIsUrl ? canonicalUrl(scrubbedLocation) : undefined) ??
     extractUrls(raw.description).map(canonicalUrl).find((u): u is string => !!u) ??
     canonicalUrl(ctx.fallbackUrl) ??
     ctx.fallbackUrl
@@ -122,7 +128,7 @@ export function normalize(raw: RawEvent, ctx: NormalizeContext): NormalizedEvent
     start: { instant: start.toUTC().toISO()!, tz, allDay: !!raw.allDay, tzInferred },
     end: end ? { instant: end.toUTC().toISO()! } : undefined,
     status: raw.status ?? 'scheduled',
-    mode: inferMode(raw, joinUrl, hasPlace),
+    mode: inferMode(raw, joinUrl ?? (locationIsUrl && !hasPlace ? scrubbedLocation : undefined), hasPlace),
     locations,
     joinUrl,
     sourceUrl,

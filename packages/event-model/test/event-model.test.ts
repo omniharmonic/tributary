@@ -38,9 +38,10 @@ describe('normalize', () => {
     expect(e.start.tzInferred).toBe(false)
     expect(e.end?.instant).toBe('2026-10-04T19:00:00.000Z')
   })
-  it('flags inferred zones and honours explicit offsets', () => {
+  it('flags inferred zones only for floating times and honours explicit offsets', () => {
     const e = normalize({ ...raw, tz: undefined, start: '2026-10-04T10:00:00-05:00' }, ctx)
-    expect(e.start.tzInferred).toBe(true)
+    expect(e.start.tzInferred).toBe(false)
+    expect(normalize({ ...raw, tz: undefined, start: '2026-10-04T10:00:00' }, ctx).start.tzInferred).toBe(true)
     expect(e.start.instant).toBe('2026-10-04T15:00:00.000Z')
   })
   it('handles all-day events as local midnight to midnight', () => {
@@ -54,6 +55,12 @@ describe('normalize', () => {
     expect(e.joinUrl).toBe('https://zoom.us/j/123456')
     expect(e.descriptionMd).not.toContain('zoom.us')
     expect(e.mode).toBe('hybrid')
+  })
+  it('treats a URL in the location field as a link, not a place', () => {
+    const e = normalize({ ...raw, location: 'https://luma.com/event/evt-abc', url: undefined, description: undefined }, ctx)
+    expect(e.locations).toHaveLength(0)
+    expect(e.mode).toBe('virtual')
+    expect(e.sourceUrl).toBe('https://luma.com/event/evt-abc')
   })
   it('canonicalises the source url', () => {
     const e = normalize(raw, ctx)
