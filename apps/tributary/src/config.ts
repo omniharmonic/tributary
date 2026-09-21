@@ -48,7 +48,7 @@ const schema = z.object({
   GOOGLE_API_KEY: z.string().default(''),
   PHOTON_URL: z.string().default(''),
   EXTRACT_MODEL_API_KEY: z.string().default(''),
-  EXTRACT_MODEL: z.string().default('claude-haiku-4-5-20251001'),
+  EXTRACT_MODEL: z.string().default('claude-haiku-4-5'),
 
   /** Email. Unset locally: mail is appended to `.dev-mail.log` instead of sent. */
   SMTP_URL: z.string().default(''),

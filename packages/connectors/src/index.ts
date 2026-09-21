@@ -15,6 +15,7 @@ import { manualConnector } from './manual/index.js'
 import { apiConnector } from './api/index.js'
 
 export * from './sdk.js'
+export { PUSH_SOURCE_TYPES } from './api/index.js'
 export * from './ics/parse.js'
 export { extractJsonLdEvents, extractPageMeta } from './jsonld-page/extract.js'
 
