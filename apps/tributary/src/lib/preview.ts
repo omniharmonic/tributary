@@ -87,6 +87,10 @@ export async function buildPreview(match: DetectMatch, file?: DetectFile): Promi
     if (res.meta?.tz) tz = res.meta.tz
     if (res.meta?.title && !cfg.title) cfg.title = res.meta.title
     cfg.tz = tz
+    if (match.type === 'sheet') {
+      const m = (cfg.mapping ?? {}) as CsvMapping
+      if (!m.name || !m.start) notes.push('We could not tell which columns hold the event name and the start date. Use a header row with "Title" and "Date" (and optionally "Start Time", "End Time", "Venue", "Details", "Link", "Cost").')
+    }
   }
 
   const fingerprint = match.type === 'extract' ? `extract:pending:${id('x')}` : connector.fingerprint(cfg)
