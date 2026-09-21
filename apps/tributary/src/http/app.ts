@@ -15,6 +15,7 @@ import { authRoutes, oauthRoot } from './routes/auth.js'
 import { confirmationRoutes } from './routes/confirmations.js'
 import { eventRoutes, joinRoutes } from './routes/events.js'
 import { meRoutes } from './routes/me.js'
+import { reportRoutes, stewardRoutes } from './routes/moderation.js'
 import { oneBoxRoutes, publicRoutes } from './routes/public.js'
 import { sourceRoutes } from './routes/sources.js'
 import { inboundEmailRoutes, v1Routes, webhookRoutes } from './routes/v1.js'
@@ -69,6 +70,8 @@ export function createApp(): Hono<{ Variables: Vars }> {
   api.route('/webhook', webhookRoutes)
   api.route('/inbound/email', inboundEmailRoutes)
   api.route('/join', joinRoutes)
+  api.route('/public/report', reportRoutes)
+  api.route('/steward', stewardRoutes)
   api.notFound((ctx) => ctx.json({ error: 'NotFound', message: 'Not found.' }, 404))
   app.route('/api', api)
   app.route('/', oauthRoot)

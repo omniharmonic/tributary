@@ -5,7 +5,7 @@ import { api } from '../lib/api'
 import { plainError } from '../lib/errors'
 import { shortDateTime } from '../lib/dates'
 import { useMe } from '../lib/queries'
-import type { ApiKey } from '../lib/types'
+import type { ApiKey, OrgRoleName } from '../lib/types'
 import { PageState } from '../components/PageState'
 import { Page } from '../components/Shell'
 import { Sheet } from '../components/Sheet'
@@ -26,6 +26,11 @@ export function SettingsRoute() {
   const createKey = useMutation({ mutationFn: () => api.createKey(keyName.trim()), onSuccess: (k) => { setFreshKey(k); setKeyName(''); void qc.invalidateQueries({ queryKey: ['keys'] }) } })
   const deleteKey = useMutation({ mutationFn: (id: string) => api.deleteKey(id), onSuccess: () => void qc.invalidateQueries({ queryKey: ['keys'] }) })
   const inboundQ = useQuery({ queryKey: ['inbound'], queryFn: () => api.inbound() })
+  const rolesQ = useQuery({ queryKey: ['roles'], queryFn: () => api.roles() })
+  const [roleHandle, setRoleHandle] = useState('')
+  const [roleName, setRoleName] = useState<OrgRoleName>('editor')
+  const addRole = useMutation({ mutationFn: () => api.addRole({ handle: roleHandle.trim().replace(/^@/, ''), role: roleName }), onSuccess: () => { setRoleHandle(''); void qc.invalidateQueries({ queryKey: ['roles'] }) } })
+  const removeRole = useMutation({ mutationFn: (did: string) => api.removeRole(did), onSuccess: () => void qc.invalidateQueries({ queryKey: ['roles'] }) })
   const rotate = useMutation({ mutationFn: () => api.rotateInbound(), onSuccess: () => void qc.invalidateQueries({ queryKey: ['inbound'] }) })
 
   if (!me) return null
@@ -127,6 +132,57 @@ export function SettingsRoute() {
               ))}
             </ul>
           </PageState>
+        </section>
+
+        <section className="panel grid gap-3 p-4">
+          <h2>People who can manage this account</h2>
+          <p className="text-sm text-ink-soft">Owners can do everything, editors can change sources and events, viewers can only look. The network has no way to delegate an account yet, so this list lives here, in the app, and every change to who sees what is written to the audit log.</p>
+          <PageState isPending={rolesQ.isPending} error={rolesQ.error}>
+            <ul className="grid gap-2 text-sm">
+              {rolesQ.data?.roles.map((r) => {
+                const isOwner = r.did === me.host.did
+                return (
+                  <li key={r.did} className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="min-w-0">
+                      <span className="badge mr-2">{r.role}</span>
+                      <code className="break-all">{isOwner ? `@${me.host.handle}` : r.did}</code>
+                      {isOwner ? <span className="text-ink-soft"> · you</span> : null}
+                    </span>
+                    {isOwner ? null : (
+                      <button type="button" className="btn btn-sm btn-quiet" onClick={() => removeRole.mutate(r.did)} disabled={removeRole.isPending}>
+                        Remove
+                      </button>
+                    )}
+                  </li>
+                )
+              })}
+            </ul>
+          </PageState>
+          <form
+            className="flex flex-wrap items-end gap-2"
+            onSubmit={(e) => {
+              e.preventDefault()
+              if (roleHandle.trim()) addRole.mutate()
+            }}
+          >
+            <label className="field grow">
+              <span>Handle</span>
+              <input className="input" placeholder="name.bsky.social" value={roleHandle} onChange={(e) => setRoleHandle(e.target.value)} autoCapitalize="off" autoCorrect="off" />
+            </label>
+            <label className="field">
+              <span>Role</span>
+              <select className="input" value={roleName} onChange={(e) => setRoleName(e.target.value as OrgRoleName)}>
+                <option value="owner">owner</option>
+                <option value="editor">editor</option>
+                <option value="viewer">viewer</option>
+              </select>
+            </label>
+            <button type="submit" className="btn" disabled={addRole.isPending || !roleHandle.trim()}>
+              Add
+            </button>
+          </form>
+          {addRole.error ? <p className="notice notice-warn">{plainError(addRole.error)}</p> : null}
+          {removeRole.error ? <p className="notice notice-warn">{plainError(removeRole.error)}</p> : null}
         </section>
 
         <section className="panel grid gap-3 p-4">

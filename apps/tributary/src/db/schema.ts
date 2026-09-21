@@ -364,7 +364,26 @@ export const oauthSession = pgTable('tb_oauth_session', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
+/** F19: reports from the public card; the steward queue works from here. */
+export const report = pgTable(
+  'tb_report',
+  {
+    id: text('id').primaryKey(),
+    atUri: text('at_uri').notNull(),
+    reason: text('reason').notNull(),
+    details: text('details'),
+    /** sha256 of the reporter's IP + day, for rate limiting only. */
+    reporterHash: text('reporter_hash'),
+    reporterDid: text('reporter_did'),
+    createdAt: now(),
+    resolvedAt: timestamp('resolved_at', { withTimezone: true }),
+    resolution: text('resolution'),
+  },
+  (t) => [index('tb_report_uri_idx').on(t.atUri), index('tb_report_open_idx').on(t.resolvedAt, t.createdAt)],
+)
+
 export const schema = {
+  report,
   host,
   credential,
   source,
