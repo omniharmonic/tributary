@@ -25,8 +25,10 @@ import type {
   PublicEvent,
   PublicHost,
   RawEvent,
+  ReportAction,
   ReportReason,
   Rule,
+  StewardReport,
   SignupResponse,
   Source,
   SourceDetail,
@@ -139,6 +141,10 @@ export interface Api {
   removeRole(did: string): Promise<void>
   /** Hosts I may act for. */
   managed(): Promise<{ hosts: ManagedHost[] }>
+
+  /** The steward queue (F19). The server answers 404 for anyone who is not a steward. */
+  stewardReports(all: boolean): Promise<{ reports: StewardReport[] }>
+  resolveReport(id: string, action: ReportAction): Promise<{ ok: true; resolution: ReportAction }>
 }
 
 const qs = (o: Record<string, string | number | undefined>) => {
@@ -226,6 +232,9 @@ export const realApi: Api = {
   addRole: (body) => call('POST', '/api/me/roles', body),
   removeRole: (did) => call('DELETE', `/api/me/roles/${encodeURIComponent(did)}`),
   managed: () => call('GET', '/api/me/managed'),
+
+  stewardReports: (all) => call('GET', `/api/steward/reports${all ? '?all=1' : ''}`),
+  resolveReport: (id, action) => call('POST', `/api/steward/reports/${encodeURIComponent(id)}`, { action }),
 }
 
 let api: Api = realApi

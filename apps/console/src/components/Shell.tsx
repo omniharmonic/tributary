@@ -107,6 +107,7 @@ export function Page({ title, lede, children, wide }: { title?: ReactNode; lede?
 
 export function Footer() {
   const cfg = useConfig()
+  const { me } = useMe()
   return (
     <footer className="mt-12 border-t border-rule">
       <div className="mx-auto flex max-w-3xl flex-wrap gap-x-5 gap-y-1 px-4 py-6 text-sm text-ink-soft">
@@ -117,6 +118,8 @@ export function Footer() {
         <Link to="/about/crawler">About our crawler</Link>
         <Link to="/legal/terms">Terms</Link>
         <Link to="/legal/privacy">Privacy</Link>
+        <Link to="/about/bookmarklet">Bookmarklet</Link>
+        {me ? <Link to="/steward">Steward</Link> : null}
       </div>
     </footer>
   )

@@ -1,4 +1,5 @@
 import { Link } from '@tanstack/react-router'
+import { useState } from 'react'
 import { useConfig } from '../lib/queries'
 import { Footer, Page } from '../components/Shell'
 
@@ -77,6 +78,58 @@ export function PrivacyRoute() {
           <p>We keep your email address to send you sign-in links and notices about your sources. We do not sell it or share it.</p>
           <p>Our logs carry identifiers, not addresses or event text. Extracted events are shown to you for confirmation before anything is published.</p>
           <p>Guest-only events are access-controlled, not encrypted. The people who run this directory can read them; the servers hosting guests&rsquo; accounts can read what those guests write.</p>
+        </div>
+      </Page>
+      <Footer />
+    </>
+  )
+}
+
+/** "Send this page to the directory": a bookmarklet that opens /add with the current page's URL (P8). */
+export function bookmarkletCode(origin: string): string {
+  return `javascript:(function(){window.open(${JSON.stringify(origin)}+'/add?input='+encodeURIComponent(location.href),'_blank')})();`
+}
+
+export function BookmarkletRoute() {
+  const cfg = useConfig()
+  const origin = typeof window === 'undefined' ? '' : window.location.origin
+  const code = bookmarkletCode(origin)
+  const [copied, setCopied] = useState(false)
+  return (
+    <>
+      <Page title="Send this page to the directory" lede="A bookmark that opens whatever event page you are looking at in the add box, so a Luma, Meetup or venue page is one click from listed.">
+        <div className="grid gap-5">
+          <section className="panel grid gap-3 p-4">
+            <h2>On a computer</h2>
+            <p className="text-ink-soft">Drag this link to your bookmarks bar. Then, on any event or calendar page, click it.</p>
+            <p>
+              <a href={code} className="btn btn-primary" draggable onClick={(e) => e.preventDefault()} title="Drag me to your bookmarks bar">
+                Send to {cfg.brand}
+              </a>
+            </p>
+            <details>
+              <summary className="cursor-pointer text-sm text-ink-soft">Or copy the code and make a bookmark by hand</summary>
+              <pre className="mt-2 overflow-x-auto rounded bg-surface-2 p-3 text-xs">{code}</pre>
+              <button
+                type="button"
+                className="btn btn-sm mt-2"
+                onClick={() => {
+                  void navigator.clipboard?.writeText(code).then(() => setCopied(true))
+                }}
+              >
+                {copied ? 'Copied' : 'Copy code'}
+              </button>
+            </details>
+          </section>
+          <section className="panel grid gap-2 p-4">
+            <h2>On a phone</h2>
+            <p className="text-ink-soft">Bookmarklets are awkward on phones. Instead: open the share sheet on the event page, choose Copy link, then paste it on the add page.</p>
+            <p>
+              <Link to="/add" className="btn">
+                Open the add page
+              </Link>
+            </p>
+          </section>
         </div>
       </Page>
       <Footer />

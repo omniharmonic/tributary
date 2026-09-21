@@ -9,8 +9,8 @@ export interface OneBoxSubmit {
   file?: File
 }
 
-export function OneBox({ onSubmit, busy, autoFocus }: { onSubmit: (s: OneBoxSubmit) => void; busy?: boolean; autoFocus?: boolean }) {
-  const [input, setInput] = useState('')
+export function OneBox({ onSubmit, busy, autoFocus, initialInput = '' }: { onSubmit: (s: OneBoxSubmit) => void; busy?: boolean; autoFocus?: boolean; initialInput?: string }) {
+  const [input, setInput] = useState(initialInput)
   const [file, setFile] = useState<File | undefined>()
   const [over, setOver] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -84,7 +84,9 @@ export function OneBox({ onSubmit, busy, autoFocus }: { onSubmit: (s: OneBoxSubm
           </button>
         </div>
       </div>
-      <p className="hint">Works with Google Calendar, Luma, Meetup, Eventbrite, WordPress and Squarespace sites, any calendar feed, a forwarded invite, or a sentence like &ldquo;Repair caf&eacute;, first Saturdays 10&ndash;1 at the library&rdquo;.</p>
+      <p className="hint">
+        Works with Google Calendar, Luma, Meetup, Eventbrite, WordPress and Squarespace sites, any calendar feed, a forwarded invite, or a sentence like &ldquo;Repair caf&eacute;, first Saturdays 10&ndash;1 at the library&rdquo;. On any event page, <a href="/about/bookmarklet">use the bookmarklet</a>.
+      </p>
     </form>
   )
 }

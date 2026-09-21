@@ -5,7 +5,7 @@
 import { DateTime } from 'luxon'
 import type { Api } from './api'
 import { ApiError } from './errors'
-import type { ApiKey, Confirmation, CsvInfo, DetectMatch, EventCard, LedgerEvent, ManagedHost, Me, OrgRole, Preview, PublicEvent, PublicHost, Rule, Source, SourceDetail, Visibility } from './types'
+import type { ApiKey, Confirmation, CsvInfo, DetectMatch, EventCard, LedgerEvent, ManagedHost, Me, OrgRole, Preview, PublicEvent, PublicHost, Rule, Source, SourceDetail, StewardReport, Visibility } from './types'
 
 const TZ = 'America/Denver'
 const now = DateTime.now().setZone(TZ)
@@ -498,7 +498,32 @@ export const mockApi: Api = {
     await delay(120)
     return { hosts: managed }
   },
+
+  async stewardReports(all) {
+    requireMe()
+    await delay(200)
+    return { reports: all ? reports : reports.filter((r) => !r.resolvedAt) }
+  },
+  async resolveReport(id, action) {
+    requireMe()
+    await delay(300)
+    const r = reports.find((x) => x.id === id)
+    if (!r) throw new ApiError('NotFound', 'Nothing is here.', 404)
+    if (r.resolvedAt) throw new ApiError('Conflict', 'This report was already handled.', 409)
+    r.resolvedAt = new Date().toISOString()
+    r.resolution = action
+    if (action !== 'dismiss' && r.event) r.event.hidden = true
+    return { ok: true, resolution: action }
+  },
 }
+
+const reportUri = (h: PublicHost, rkey: string) => `at://${h.did}/community.lexicon.calendar.event/${rkey}`
+const reports: StewardReport[] = [
+  { id: 'rep_1', atUri: reportUri(hosts.hikers!, '3lx1'), reason: 'wrong-details', details: 'The trailhead moved to the south lot this season.', createdAt: iso(now.minus({ hours: 3 })), resolvedAt: null, resolution: null, event: { id: 'ev_h1', name: 'Sunrise hike, Chautauqua', state: 'live', visibility: 'public', hidden: false }, host: { handle: hosts.hikers!.handle, displayName: hosts.hikers!.displayName, door: 'listed' } },
+  { id: 'rep_2', atUri: reportUri(hosts.seeds!, '3lx2'), reason: 'private-information', details: 'The description has someone’s phone number in it.', createdAt: iso(now.minus({ days: 1, hours: 2 })), resolvedAt: null, resolution: null, event: { id: 'ev_s1', name: 'Seed Swap and Garden Planning', state: 'live', visibility: 'public', hidden: false }, host: { handle: hosts.seeds!.handle, displayName: hosts.seeds!.displayName, door: 'custodial' } },
+  { id: 'rep_3', atUri: reportUri(hosts.library!, '3lx3'), reason: 'spam', details: null, createdAt: iso(now.minus({ days: 2 })), resolvedAt: null, resolution: null, event: { id: 'ev_l1', name: 'Make money fast seminar', state: 'live', visibility: 'public', hidden: false }, host: { handle: hosts.library!.handle, displayName: hosts.library!.displayName, door: 'custodial' } },
+  { id: 'rep_4', atUri: reportUri(hosts.etown!, '3lx4'), reason: 'not-an-event', details: 'This is a fundraising page.', createdAt: iso(now.minus({ days: 6 })), resolvedAt: iso(now.minus({ days: 5 })), resolution: 'dismiss', event: { id: 'ev_e1', name: 'eTown Hall Sessions', state: 'live', visibility: 'public', hidden: false }, host: { handle: hosts.etown!.handle, displayName: hosts.etown!.displayName, door: 'oauth' } },
+]
 
 /** Higher is more visible. Widening (up) needs confirmation; narrowing (down) applies at once. */
 function rank(v: Visibility): number {

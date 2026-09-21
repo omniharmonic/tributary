@@ -15,7 +15,7 @@ function ctx(routes: Record<string, { status?: number; body: unknown; contentTyp
 }
 
 describe('localist', () => {
-  const ev = { id: 7, title: 'Campus Farmers Market', description: '<p>Fresh</p>', localist_url: 'https://events.colorado.edu/event/market', photo_url: 'https://img/m.jpg', location_name: 'UMC Plaza', address: '1669 Euclid Ave', city: 'Boulder', state: 'CO', zip: '80309', geo: { latitude: '40.006', longitude: '-105.27' }, free: true, experience: 'inperson', status: 'live', event_instances: [{ event_instance: { id: 1, start: '2026-10-07T10:00:00-06:00', end: '2026-10-07T14:00:00-06:00' } }, { event_instance: { id: 2, start: '2026-10-14T10:00:00-06:00' } }], filters: { event_types: [{ name: 'Market' }] } }
+  const ev = { id: 7, title: 'Campus Farmers Market', description: '<p>Fresh</p>', localist_url: 'https://events.colorado.edu/event/market', photo_url: 'https://img/m.jpg', location_name: 'UMC Plaza, 1669 Euclid Ave, Boulder', address: '1669 Euclid Ave', city: 'Boulder', state: 'CO', zip: '80309', geo: { latitude: '40.006', longitude: '-105.27' }, free: true, experience: 'inperson', status: 'live', event_instances: [{ event_instance: { id: 1, start: '2026-10-07T10:00:00-06:00', end: '2026-10-07T14:00:00-06:00' } }, { event_instance: { id: 2, start: '2026-10-14T10:00:00-06:00' } }], filters: { event_types: [{ name: 'Market' }] } }
   it('publishes each instance as an occurrence with native photo and place', () => {
     const raws = localistRaw(ev)
     expect(raws).toHaveLength(2)

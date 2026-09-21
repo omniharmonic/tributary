@@ -9,7 +9,8 @@ import { connectorFor, defaultWindow, ConnectorError, type FetchCtx, type RawEve
 import { PUSH_SOURCE_TYPES } from '@tributary/connectors'
 import { normalize, NormalizeError, toCard, type NormalizedEvent, type Visibility } from '@tributary/event-model'
 import { tid, unwrapSecret } from '@tributary/identity'
-import { fetchAndPrepareImage, publishEvent, unpublishEvent, WriterAuthError, type PreparedImage } from '@tributary/publisher'
+import { fetchAndPrepareImage, publishEvent, unpublishEvent, WriterAuthError, WriterRateLimitError, type PreparedImage } from '@tributary/publisher'
+import { recordAudit } from '../lib/audit.js'
 import { applyClassification, classify, isPublicLevel, type VisibilityRule } from '@tributary/visibility'
 import { config } from '../config.js'
 import { getDb } from '../db/index.js'
@@ -25,6 +26,10 @@ import { planReconcile, type Action, type LedgerRow } from './reconcile.js'
 export const INTERVAL_FLOOR_MS = 10 * 60_000
 export const INTERVAL_CEILING_MS = 6 * 3_600_000
 export const PAUSE_AFTER_FAILING_MS = 14 * 86_400_000
+/** New records per run: keeps a large first import under the PDS write budget; the rest follow on the next runs. */
+export const CREATES_PER_RUN = 250
+/** A first publish above this is noted for the steward (architecture §15). */
+export const STEWARD_GLANCE_THRESHOLD = 50
 
 type SourceRow = typeof source.$inferSelect
 type EventRow = typeof sourceEvent.$inferSelect
@@ -61,6 +66,7 @@ function plainError(err: unknown): { code: string; message: string } {
   }
   if (err instanceof HostPausedError) return { code: 'HostPaused', message: err.reason === 'credential-rejected' ? 'Your account no longer lets us publish. Reconnect from Settings.' : 'Publishing is paused for this account.' }
   if (err instanceof WriterAuthError) return { code: 'HostPaused', message: 'Your account no longer lets us publish. Reconnect from Settings.' }
+  if (err instanceof WriterRateLimitError) return { code: 'RateLimited', message: 'Your repository asked us to slow down; publishing continues on the next run.' }
   return { code: 'Internal', message: 'Something went wrong on our side. We will try again.' }
 }
 
@@ -352,16 +358,34 @@ export async function runSource(sourceId: string, opts: { trigger?: 'schedule' |
       await db.update(source).set({ identityMode: 'hash' }).where(eq(source.id, s.id))
       log.warn('source regenerates UIDs; switched identity mode', { source: s.id })
     }
+    const creates = plan.actions.filter((a) => a.kind === 'create').length
+    if (creates > STEWARD_GLANCE_THRESHOLD && rows.length === 0) {
+      await recordAudit({ hostId: h.id, actor: h.did, action: 'source.large-first-import', subject: s.id, detail: { events: creates } })
+      log.info('large first import noted for the steward', { source: s.id, events: creates })
+    }
+    let created = 0
+    let deferred = 0
     for (const action of plan.actions) {
+      if (action.kind === 'create' && action.event.visibility !== 'held') {
+        if (created >= CREATES_PER_RUN) {
+          deferred++
+          continue
+        }
+        created++
+      }
       try {
         await execute(h, s, action, byId, summary)
         if (action.kind !== 'touch' && action.kind !== 'leave' && action.kind !== 'missing') changed = true
       } catch (err) {
-        if (err instanceof WriterAuthError || err instanceof HostPausedError) throw err
+        if (err instanceof WriterAuthError || err instanceof HostPausedError || err instanceof WriterRateLimitError) throw err
         summary.failed++
         log.warn('event action failed', { kind: action.kind, detail: describeError(err) })
         if ('row' in action) await db.update(sourceEvent).set({ lastError: describeError(err) }).where(eq(sourceEvent.id, action.row.id))
       }
+    }
+    if (deferred > 0) {
+      changed = true
+      log.info('first import continues on the next run', { source: s.id, deferred })
     }
     summary.ok = true
     await finishRun(runId, summary)

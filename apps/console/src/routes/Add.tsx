@@ -1,6 +1,6 @@
-import { useNavigate } from '@tanstack/react-router'
+import { useNavigate, useSearch } from '@tanstack/react-router'
 import { useMutation } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { api } from '../lib/api'
 import { plainError } from '../lib/errors'
 import type { DetectMatch } from '../lib/types'
@@ -12,6 +12,9 @@ import { Footer, Page } from '../components/Shell'
 
 export function AddRoute() {
   const navigate = useNavigate()
+  // `/add?input=<url>`: the bookmarklet and share-sheet entry point. Submitted once, never again on re-render.
+  const { input: prefill } = useSearch({ strict: false }) as { input?: string }
+  const autoSubmitted = useRef(false)
   const [pending, setPending] = useState<{ submit: OneBoxSubmit; matches: DetectMatch[] } | null>(null)
   const detect = useMutation({
     mutationFn: (s: OneBoxSubmit) => api.detect(s.input, s.file),
@@ -34,11 +37,17 @@ export function AddRoute() {
   })
   const busy = detect.isPending || preview.isPending
   const error = detect.error ?? preview.error
+  useEffect(() => {
+    if (!prefill?.trim() || autoSubmitted.current) return
+    autoSubmitted.current = true
+    detect.mutate({ input: prefill.trim() })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefill])
 
   return (
     <>
       <Page title="Add your events" lede="Paste a link, drop a file, or describe an event. You keep using whatever you use now; we keep the directory up to date.">
-        <OneBox onSubmit={(s) => { setPending(null); detect.mutate(s) }} busy={busy} autoFocus />
+        <OneBox onSubmit={(s) => { setPending(null); detect.mutate(s) }} busy={busy} autoFocus initialInput={prefill ?? ''} />
         {error ? (
           <p className="notice notice-warn mt-4" role="alert">
             {plainError(error)}

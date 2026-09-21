@@ -35,6 +35,23 @@ interface LocalistEvent {
   private?: boolean
 }
 
+/**
+ * Localist's `location_name` often repeats the street and city ("Hellems, 1550 Central
+ * Campus Mall, Boulder, CO 80309"); keep the venue name only, and drop a city that the
+ * address already ends with.
+ */
+function placeOf(e: LocalistEvent): NonNullable<RawEvent['locations']>[number] {
+  let name = e.location_name?.trim()
+  const street = e.address?.trim()
+  if (name && street) {
+    const i = name.toLowerCase().indexOf(street.toLowerCase().split(',')[0]!)
+    if (i > 0) name = name.slice(0, i).replace(/[,\s]+$/, '')
+    else if (i === 0) name = undefined
+  }
+  if (name && e.city && name.toLowerCase().endsWith(`, ${e.city.toLowerCase()}`)) name = name.slice(0, -(e.city.length + 2))
+  return { name: name || undefined, street, locality: e.city, region: e.state, postalCode: e.zip, lat: e.geo?.latitude ? Number(e.geo.latitude) : undefined, lon: e.geo?.longitude ? Number(e.geo.longitude) : undefined }
+}
+
 export function toRawEvents(e: LocalistEvent): RawEvent[] {
   const name = e.title?.trim()
   if (!name || !e.id) return []
@@ -48,7 +65,7 @@ export function toRawEvents(e: LocalistEvent): RawEvent[] {
     url: e.localist_url ?? e.url,
     imageUrl: e.photo_url,
     mode,
-    locations: e.location_name || e.address ? [{ name: e.location_name, street: e.address, locality: e.city, region: e.state, postalCode: e.zip, lat: e.geo?.latitude ? Number(e.geo.latitude) : undefined, lon: e.geo?.longitude ? Number(e.geo.longitude) : undefined }] : undefined,
+    locations: e.location_name || e.address ? [placeOf(e)] : undefined,
     isFree: e.free,
     priceText: e.free ? 'Free' : e.cost,
     tags: [...(e.filters?.event_types ?? []), ...(e.filters?.departments ?? [])].map((t) => t.name).filter((x): x is string => !!x),

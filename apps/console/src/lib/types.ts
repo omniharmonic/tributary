@@ -292,3 +292,17 @@ export interface JoinResult {
   kind: 'join' | 'read' | 'read-join'
   role: number | null
 }
+
+/** F19: a report in the steward queue. */
+export type ReportAction = 'dismiss' | 'deindex' | 'takedown'
+export interface StewardReport {
+  id: string
+  atUri: string
+  reason: ReportReason | string
+  details: string | null
+  createdAt: string
+  resolvedAt: string | null
+  resolution: ReportAction | null
+  event: { id: string; name: string | null; state: string; visibility: string; hidden: boolean } | null
+  host: { handle: string; displayName: string; door: 'custodial' | 'oauth' | 'listed' | string } | null
+}

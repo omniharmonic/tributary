@@ -23,6 +23,8 @@ const AudienceRoute = lazyRouteComponent(() => import('./routes/Audience'), 'Aud
 const SettingsRoute = lazyRouteComponent(() => import('./routes/Settings'), 'SettingsRoute')
 const JoinRoute = lazyRouteComponent(() => import('./routes/Join'), 'JoinRoute')
 const CrawlerRoute = lazyRouteComponent(() => import('./routes/Misc'), 'CrawlerRoute')
+const BookmarkletRoute = lazyRouteComponent(() => import('./routes/Misc'), 'BookmarkletRoute')
+const StewardRoute = lazyRouteComponent(() => import('./routes/Steward'), 'StewardRoute')
 const PublishingRoute = lazyRouteComponent(() => import('./routes/Misc'), 'PublishingRoute')
 const TermsRoute = lazyRouteComponent(() => import('./routes/Misc'), 'TermsRoute')
 const PrivacyRoute = lazyRouteComponent(() => import('./routes/Misc'), 'PrivacyRoute')
@@ -91,7 +93,7 @@ async function requireSession({ context, location }: { context: RouterContext; l
 const home = createRoute({ getParentRoute: () => rootRoute, path: '/', component: HomeRoute, validateSearch: (s: Record<string, unknown>): HomeSearch => opt({ q: s.q, category: s.category, when: s.when }) as HomeSearch })
 const event = createRoute({ getParentRoute: () => rootRoute, path: '/e/$did/$rkey', component: EventRoute })
 const host = createRoute({ getParentRoute: () => rootRoute, path: '/h/$handle', component: HostRoute })
-const add = createRoute({ getParentRoute: () => rootRoute, path: '/add', component: AddRoute })
+const add = createRoute({ getParentRoute: () => rootRoute, path: '/add', component: AddRoute, validateSearch: (s: Record<string, unknown>): { input?: string } => opt({ input: s.input }) })
 const preview = createRoute({ getParentRoute: () => rootRoute, path: '/preview/$previewId', component: PreviewRoute })
 const connect = createRoute({
   getParentRoute: () => rootRoute,
@@ -108,15 +110,17 @@ const ledger = createRoute({ getParentRoute: () => rootRoute, path: '/dashboard/
 const confirmations = createRoute({ getParentRoute: () => rootRoute, path: '/dashboard/confirmations', beforeLoad: requireSession, component: ConfirmationsRoute })
 const audience = createRoute({ getParentRoute: () => rootRoute, path: '/dashboard/audience/$eventId', beforeLoad: requireSession, component: AudienceRoute })
 const settings = createRoute({ getParentRoute: () => rootRoute, path: '/settings', beforeLoad: requireSession, component: SettingsRoute })
+const steward = createRoute({ getParentRoute: () => rootRoute, path: '/steward', beforeLoad: requireSession, component: StewardRoute })
 const join = createRoute({ getParentRoute: () => rootRoute, path: '/join/$token', component: JoinRoute, validateSearch: (s: Record<string, unknown>): { e?: string } => opt({ e: s.e }) })
 const confirmDeepLink = createRoute({ getParentRoute: () => rootRoute, path: '/confirm/$id', component: ConfirmDeepLinkRoute })
 
 const crawler = createRoute({ getParentRoute: () => rootRoute, path: '/about/crawler', component: CrawlerRoute })
+const bookmarklet = createRoute({ getParentRoute: () => rootRoute, path: '/about/bookmarklet', component: BookmarkletRoute })
 const publishing = createRoute({ getParentRoute: () => rootRoute, path: '/about/publishing', component: PublishingRoute })
 const terms = createRoute({ getParentRoute: () => rootRoute, path: '/legal/terms', component: TermsRoute })
 const privacy = createRoute({ getParentRoute: () => rootRoute, path: '/legal/privacy', component: PrivacyRoute })
 
-const routeTree = rootRoute.addChildren([home, event, host, add, preview, connect, verify, login, dashboard, sourceDetail, ledger, confirmations, audience, settings, join, confirmDeepLink, crawler, publishing, terms, privacy])
+const routeTree = rootRoute.addChildren([home, event, host, add, preview, connect, verify, login, dashboard, sourceDetail, ledger, confirmations, audience, settings, steward, join, confirmDeepLink, crawler, bookmarklet, publishing, terms, privacy])
 
 export function makeRouter(queryClient: QueryClient) {
   return createRouter({ routeTree, context: { queryClient }, defaultPreload: 'intent', scrollRestoration: true })

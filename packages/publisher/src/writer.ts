@@ -29,6 +29,14 @@ export class CasError extends Error {
   }
 }
 
+/** The PDS's write budget (5,000 points an hour by default) is exhausted; stop and resume later. */
+export class WriterRateLimitError extends Error {
+  constructor() {
+    super('the PDS asked us to slow down')
+    this.name = 'WriterRateLimitError'
+  }
+}
+
 export class WriterAuthError extends Error {
   constructor(message = 'the session was rejected') {
     super(message)
@@ -45,6 +53,11 @@ function toJsonBlob(ref: unknown): BlobRefJson {
 function isCas(err: unknown): boolean {
   const e = err as { error?: string; message?: string; status?: number }
   return e?.error === 'InvalidSwap' || /swap/i.test(e?.message ?? '')
+}
+
+function isRateLimit(err: unknown): boolean {
+  const e = err as { status?: number; error?: string }
+  return e?.status === 429 || e?.error === 'RateLimitExceeded'
 }
 
 function isAuth(err: unknown): boolean {
@@ -64,6 +77,7 @@ export class AgentWriter implements RepoWriter {
       const res = await this.agent.com.atproto.repo.uploadBlob(bytes, { encoding: mime })
       return toJsonBlob(res.data.blob)
     } catch (err) {
+      if (isRateLimit(err)) throw new WriterRateLimitError()
       if (isAuth(err)) throw new WriterAuthError()
       throw err
     }
@@ -83,6 +97,7 @@ export class AgentWriter implements RepoWriter {
       return { uri: res.data.uri, cid: res.data.cid }
     } catch (err) {
       if (isCas(err)) throw new CasError()
+      if (isRateLimit(err)) throw new WriterRateLimitError()
       if (isAuth(err)) throw new WriterAuthError()
       throw err
     }
@@ -92,6 +107,7 @@ export class AgentWriter implements RepoWriter {
     try {
       await this.agent.com.atproto.repo.deleteRecord({ repo: this.did, collection, rkey })
     } catch (err) {
+      if (isRateLimit(err)) throw new WriterRateLimitError()
       if (isAuth(err)) throw new WriterAuthError()
       throw err
     }
