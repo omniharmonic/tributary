@@ -10,7 +10,7 @@ OUT=/var/backups/tributary
 STAMP=$(date -u +%Y%m%dT%H%M%SZ)
 C="docker compose --env-file $ROOT/infra/production/.env -f $ROOT/infra/production/compose.yml"
 mkdir -p "$OUT"
-$C exec -T postgres pg_dump -U tributary -d tributary --format=plain --no-owner | gzip > "$OUT/postgres-$STAMP.sql.gz"
+$C exec -T db pg_dump -U tributary -d tributary --format=plain --no-owner | gzip > "$OUT/postgres-$STAMP.sql.gz"
 $C run --rm --no-deps -T -v "$OUT:/backup" --entrypoint sh gate -c "tar czf /backup/gate-blobs-$STAMP.tgz -C /data/gate-blobs ." 2>/dev/null || true
 find "$OUT" -type f -mtime +14 -delete
 echo "backup ok $STAMP"

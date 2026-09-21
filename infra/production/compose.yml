@@ -11,7 +11,9 @@
 # called `production`, and two projects with one name share containers and volumes.
 name: tributary
 services:
-  postgres:
+  # Named `db`, not `postgres`: tributary and gate also sit on Free School's network,
+  # where `postgres` resolves to Free School's database.
+  db:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
@@ -34,14 +36,14 @@ services:
     init: true
     environment:
       GATE_PORT: '4200'
-      DATABASE_URL: postgres://tributary:${POSTGRES_PASSWORD}@postgres:5432/tributary
+      DATABASE_URL: postgres://tributary:${POSTGRES_PASSWORD}@db:5432/tributary
       GATE_SERVICE_SECRET: ${GATE_SERVICE_SECRET:?Set GATE_SERVICE_SECRET}
       GATE_BLOB_DIR: /data/gate-blobs
       GATE_PUBLIC_URL: https://${TRIBUTARY_HOST:?Set TRIBUTARY_HOST}/gate
     volumes:
       - gate_blobs:/data/gate-blobs
     depends_on:
-      postgres:
+      db:
         condition: service_healthy
     healthcheck:
       test: [CMD, node, -e, "fetch('http://localhost:4200/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
@@ -61,13 +63,13 @@ services:
     environment:
       NODE_ENV: production
       TRIBUTARY_PORT: '4100'
-      DATABASE_URL: postgres://tributary:${POSTGRES_PASSWORD}@postgres:5432/tributary
+      DATABASE_URL: postgres://tributary:${POSTGRES_PASSWORD}@db:5432/tributary
       WEB_PUBLIC_URL: https://${TRIBUTARY_HOST:?Set TRIBUTARY_HOST}
       GATE_URL: http://gate:4200
       CONSOLE_DIST: /app/apps/console/dist
       TRIBUTARY_VERSION: ${TRIBUTARY_VERSION:-dev}
     depends_on:
-      postgres:
+      db:
         condition: service_healthy
       gate:
         condition: service_started
