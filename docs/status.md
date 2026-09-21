@@ -17,7 +17,7 @@ Deployed: https://tributary.freeskool.directory (see `deployment.md`).
 | F9 | No duplicate writes | Done — smoke test asserts zero writes on re-sync |
 | F10 | Extraction with confirmation | Built (one-box, email, Telegram all land in the queue; the identity step redirects to `/confirm/:id`); extraction is off in production until `EXTRACT_MODEL_API_KEY` is set |
 | F11 | Email in | Handler built; the Cloudflare Email Worker is written (`infra/email-worker`) but not deployed (needs the zone on Cloudflare) |
-| F12 | Claim | Not built (Listed tier waits for counsel; there is nothing to claim yet) |
+| F12 | Claim | Token-in-source verification done (raises provenance to "Verified source"; smoke-tested); OAuth hosts on their own domain get "Verified domain". Claiming a curator's listing waits for the Listed tier (counsel) |
 | F13 | Takeover and exit | Take-control, revoke, delete done; migration to a second PDS not exercised |
 | F14 | Listed tier limits | `toListedRecord` exists; the tier is not open |
 | F15 | Removal | Removal blocks honoured on connect; no self-serve request form yet |
