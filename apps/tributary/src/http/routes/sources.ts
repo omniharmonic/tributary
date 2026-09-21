@@ -69,6 +69,14 @@ sourceRoutes.post('/', async (c) => {
       const r = await connectSource(h, { type: m.type as never, platform: m.platform ?? '', config: p.config, defaultVisibility: visibility, audience, tz: p.tz, rawEvents: isPushPreview(p) ? (p.rawEvents as never) : undefined })
       return c.json({ source: publicSource(r.source), created: r.created }, r.created ? 201 : 200)
     }
+    if (typeof b.type === 'string' && typeof b.secrets === 'object' && b.secrets) {
+      const secrets = Object.fromEntries(Object.entries(b.secrets as Record<string, unknown>).filter(([, v]) => typeof v === 'string').map(([k, v]) => [k, String(v).trim()]))
+      if (b.type === 'eventbrite' && secrets.token) secrets.EVENTBRITE_TOKEN = secrets.token
+      if (b.type !== 'eventbrite') throw new ApiError(400, 'InvalidInput', 'Only Eventbrite takes a token for now.')
+      if (!secrets.EVENTBRITE_TOKEN) throw new ApiError(400, 'InvalidInput', 'Paste your Eventbrite private token.')
+      const r = await connectSource(h, { type: 'eventbrite', platform: 'eventbrite', defaultVisibility: visibility, audience, secrets: { EVENTBRITE_TOKEN: secrets.EVENTBRITE_TOKEN } })
+      return c.json({ source: publicSource(r.source), created: r.created }, r.created ? 201 : 200)
+    }
     if (typeof b.match === 'object' && b.match) {
       const m = b.match as { type: string; platform?: string }
       const r = await connectSource(h, { type: m.type as never, platform: m.platform ?? '', match: b.match as never, defaultVisibility: visibility, audience })
@@ -116,11 +124,11 @@ sourceRoutes.patch('/:id', async (c) => {
         await getDb().insert(pendingConfirmation).values({ id: id('pc'), hostId: h.id, sourceId: s.id, kind: 'widen', payload: { eventId: r.id, from: r.visibility, to, card: toCard(r.normalized as unknown as NormalizedEvent), sourceDefault: to }, expiresAt: new Date(Date.now() + 30 * 86_400_000) })
         pending++
       }
-      await recordAudit({ hostId: h.id, actor: h.did, action: 'source.widen-requested', subject: s.id, detail: { from: s.defaultVisibility, to, pending } })
+      await recordAudit({ hostId: h.id, actor: (c.get('actor') ?? h).did, action: 'source.widen-requested', subject: s.id, detail: { from: s.defaultVisibility, to, pending } })
       patch.defaultVisibility = to
     } else {
       patch.defaultVisibility = to
-      if (to !== s.defaultVisibility) await recordAudit({ hostId: h.id, actor: h.did, action: 'source.narrowed', subject: s.id, detail: { from: s.defaultVisibility, to } })
+      if (to !== s.defaultVisibility) await recordAudit({ hostId: h.id, actor: (c.get('actor') ?? h).did, action: 'source.narrowed', subject: s.id, detail: { from: s.defaultVisibility, to } })
     }
   }
   if (Object.keys(patch).length) await getDb().update(source).set(patch).where(eq(source.id, s.id))
@@ -159,7 +167,7 @@ sourceRoutes.delete('/:id', async (c) => {
     }
   }
   await getDb().delete(source).where(eq(source.id, s.id))
-  await recordAudit({ hostId: h.id, actor: h.did, action: 'source.removed', subject: s.id, detail: { removed } })
+  await recordAudit({ hostId: h.id, actor: (c.get('actor') ?? h).did, action: 'source.removed', subject: s.id, detail: { removed } })
   return c.json({ removed })
 })
 
@@ -189,7 +197,7 @@ sourceRoutes.put('/:id/rules', async (c) => {
       await tx.insert(visibilityRule).values({ id: id('rule'), sourceId: s.id, position: i, match: r.match as Record<string, unknown>, level: r.level as string, audience: (r.audience as never) ?? null, gatedFields: Array.isArray(r.gatedFields) ? (r.gatedFields as string[]) : null })
     }
   })
-  await recordAudit({ hostId: h.id, actor: h.did, action: 'source.rules', subject: s.id, detail: { count: rules.length } })
+  await recordAudit({ hostId: h.id, actor: (c.get('actor') ?? h).did, action: 'source.rules', subject: s.id, detail: { count: rules.length } })
   await enqueueSync(s.id, 'manual')
   return c.json({ ok: true, count: rules.length })
 })

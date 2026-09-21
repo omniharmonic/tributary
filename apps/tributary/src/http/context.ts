@@ -7,7 +7,7 @@ import { getCookie } from 'hono/cookie'
 import { and, eq, isNull } from 'drizzle-orm'
 import { hashToken } from '@tributary/identity'
 import { getDb } from '../db/index.js'
-import { apiKey } from '../db/schema.js'
+import { apiKey, orgRole } from '../db/schema.js'
 import { getHost, type HostRow } from '../lib/hosts.js'
 import { hostForCookie, SESSION_COOKIE } from '../lib/sessions.js'
 
@@ -27,7 +27,7 @@ export class ApiError extends Error {
 export const notFound = () => new ApiError(404, 'NotFound', 'Not found.')
 export const unauthorized = () => new ApiError(401, 'Unauthorized', 'Sign in to do that.')
 
-export type Vars = { host?: HostRow; auth?: 'session' | 'apikey' | 'none' }
+export type Vars = { host?: HostRow; auth?: 'session' | 'apikey' | 'none'; actor?: HostRow; role?: 'owner' | 'editor' | 'viewer' }
 export type AppContext = Context<{ Variables: Vars }>
 
 const CSRF_HEADER = 'x-requested-with'
@@ -63,11 +63,37 @@ export const authenticate: MiddlewareHandler<{ Variables: Vars }> = async (c, ne
       }
       c.set('host', h)
       c.set('auth', 'session')
+      await actAsManagedHost(c)
       return next()
     }
   }
   c.set('auth', 'none')
   return next()
+}
+
+const OWNER_ONLY = [/^\/api\/me\/(delete|keys|roles|take-control|revoke-sync|inbound)/]
+
+/**
+ * F29: `X-Acting-Host` lets a person with an organisation role act as that host. Viewers
+ * read only; editors do everything except the owner-only account actions. The person's
+ * own host stays in `actor` for the audit trail.
+ */
+async function actAsManagedHost(c: Context<{ Variables: Vars }>): Promise<void> {
+  const acting = c.req.header('x-acting-host')
+  const me = c.get('host')
+  if (!acting || !me || acting === me.id) return
+  const rows = await getDb().select().from(orgRole).where(and(eq(orgRole.hostId, acting), eq(orgRole.did, me.did))).limit(1)
+  const role = rows[0]?.role as Vars['role'] | undefined
+  if (!role) throw new ApiError(403, 'Forbidden', 'You do not have a role on that account.')
+  const target = await getHost(acting)
+  if (!target) throw new ApiError(403, 'Forbidden', 'You do not have a role on that account.')
+  const path = new URL(c.req.url).pathname
+  const write = c.req.method !== 'GET' && c.req.method !== 'HEAD'
+  if (role === 'viewer' && write) throw new ApiError(403, 'Forbidden', 'Viewers can look but not change anything.')
+  if (role !== 'owner' && OWNER_ONLY.some((re) => re.test(path))) throw new ApiError(403, 'Forbidden', 'Only the owner can do that.')
+  c.set('actor', me)
+  c.set('role', role)
+  c.set('host', target)
 }
 
 export function requireHost(c: AppContext): HostRow {

@@ -24,7 +24,21 @@ export const meRoutes = new Hono<{ Variables: Vars }>()
 
 meRoutes.get('/', (c) => {
   const h = requireHost(c)
-  return c.json({ host: publicHost(h), capabilities: { canSetPassword: h.door === 'custodial', canMigrate: h.door === 'custodial', canRevokeSync: true } })
+  const role = c.get('role') ?? 'owner'
+  return c.json({ host: publicHost(h), capabilities: { canSetPassword: h.door === 'custodial' && role === 'owner', canMigrate: h.door === 'custodial' && role === 'owner', canRevokeSync: role === 'owner' }, acting: c.get('actor') ? { role, as: h.id, actorDid: c.get('actor')!.did } : null })
+})
+
+/** Hosts (other than my own) where my DID has a role. */
+meRoutes.get('/managed', async (c) => {
+  const me = c.get('actor') ?? requireHost(c)
+  const rows = await getDb().select({ hostId: orgRole.hostId, role: orgRole.role }).from(orgRole).where(eq(orgRole.did, me.did))
+  const hosts = []
+  for (const r of rows) {
+    if (r.hostId === me.id) continue
+    const h = await getDb().select().from(host).where(eq(host.id, r.hostId)).limit(1)
+    if (h[0]) hosts.push({ id: h[0].id, handle: h[0].handle, displayName: h[0].displayName, role: r.role })
+  }
+  return c.json({ hosts })
 })
 
 meRoutes.patch('/', async (c) => {

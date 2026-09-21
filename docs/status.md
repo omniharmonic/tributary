@@ -34,13 +34,13 @@ Deployed: https://tributary.freeskool.directory (see `deployment.md`).
 | F26 | Invitations and approvals | Done in the Gate and the API; console audience page |
 | F27 | Viewer-aware site | Gate viewer matrix tested; console reveals details to approved viewers |
 | F28 | Group calendars | Members level writes to the group's calendar space; no group UI |
-| F29 | Organisation roles | API and settings UI; roles are recorded, not yet enforced on routes |
+| F29 | Organisation roles | Done — `X-Acting-Host` with viewer/editor/owner enforcement, account switcher in the console, audit names the acting person |
 | F30 | Labs parity and migration | Not run |
 
 ## Connectors
 
-Done: `ics`, `gcal-public` (API key path untested without a key), `luma`, `meetup`, `tribe`, `squarespace`, `jsonld-page`, `upload` (.ics, .csv with column mapper), `sheet` (Google Sheets published as CSV; mapping guessed from the template headers), `manual`, `api`/webhook/mcp, `email`, `extract`.
-Not built: Eventbrite API, Google OAuth, Microsoft Graph, Discord, Localist, Mobilize, Telegram, bookmarklet.
+Done: `ics`, `gcal-public` (API key path untested without a key), `luma`, `meetup`, `tribe`, `squarespace`, `jsonld-page`, `upload` (.ics, .csv with column mapper), `sheet` (Google Sheets shared by link, column mapper in the preview), `eventbrite` (private token, encrypted per source), `manual`, `api`/webhook/mcp, `email`, `extract`.
+Not built: Google OAuth, Microsoft Graph, Discord, Localist, Mobilize, Telegram, bookmarklet.
 
 ## Operations
 

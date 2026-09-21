@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from './api'
 import { ApiError } from './errors'
-import type { Me, PublicConfig } from './types'
+import { setActingHost, useActingHostId } from './acting'
+import type { ManagedHost, Me, PublicConfig } from './types'
 
 const FALLBACK_CONFIG: PublicConfig = { region: { slug: 'boulder', name: 'Boulder', tz: 'America/Denver' }, handleDomain: 'freeskool.directory', brand: 'Boulder Directory', adapterName: 'Tributary' }
 
@@ -33,10 +34,40 @@ export function useLogout() {
   return useMutation({
     mutationFn: () => api.logout(),
     onSuccess: () => {
+      setActingHost(null)
       qc.setQueryData(['me'], null)
       void qc.invalidateQueries()
     },
   })
+}
+
+/** Hosts (other than my own) where my DID holds a role. Empty for most people. */
+export function useManaged(): ManagedHost[] {
+  const { me } = useMe()
+  const q = useQuery({ queryKey: ['managed'], queryFn: () => api.managed(), enabled: !!me, staleTime: 60_000, retry: false })
+  return q.data?.hosts ?? []
+}
+
+/**
+ * The host I am currently acting as, if any. Switching invalidates every query: the
+ * dashboard, ledger, settings and confirmations all change meaning with the header.
+ */
+export function useActing(): { actingId: string | null; acting: ManagedHost | null; role: 'owner' | 'editor' | 'viewer'; readOnly: boolean; setActing: (id: string | null) => void } {
+  const qc = useQueryClient()
+  const actingId = useActingHostId()
+  const managed = useManaged()
+  const acting = actingId ? (managed.find((h) => h.id === actingId) ?? null) : null
+  const role = acting?.role ?? 'owner'
+  return {
+    actingId,
+    acting,
+    role,
+    readOnly: role === 'viewer',
+    setActing: (id) => {
+      setActingHost(id)
+      void qc.invalidateQueries({ predicate: (q) => q.queryKey[0] !== 'me' && q.queryKey[0] !== 'config' && q.queryKey[0] !== 'managed' })
+    },
+  }
 }
 
 export const keys = {

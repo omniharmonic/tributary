@@ -4,6 +4,7 @@
 import { and, eq } from 'drizzle-orm'
 import { connectorFor, PUSH_SOURCE_TYPES, type DetectMatch, type RawEvent } from '@tributary/connectors'
 import type { Audience, SourceType, Visibility } from '@tributary/event-model'
+import { wrapSecret } from '@tributary/identity'
 import { config } from '../config.js'
 import { getDb } from '../db/index.js'
 import { pushedEvent, removalBlock, source } from '../db/schema.js'
@@ -39,6 +40,8 @@ export interface ConnectInput {
   /** For push sources: the initial raw events (an upload, a confirmed extraction). */
   rawEvents?: RawEvent[]
   label?: string
+  /** Source-side credentials (Eventbrite token, ...), encrypted at rest and handed to the connector as `ctx.secrets`. */
+  secrets?: Record<string, string>
 }
 
 export async function configureFromMatch(match: DetectMatch): Promise<{ config: Record<string, unknown>; fingerprint: string; label: string; tz: string; platform: string }> {
@@ -51,8 +54,10 @@ export async function configureFromMatch(match: DetectMatch): Promise<{ config: 
 export async function connectSource(h: HostRow, input: ConnectInput): Promise<{ source: SourceRow; created: boolean }> {
   const c = config()
   const connector = connectorFor(input.type)
-  const cfg = input.config ?? (input.match ? ((await connector.configure(input.match, { http: httpClient(), log })) as Record<string, unknown>) : {})
+  const ctx = { http: httpClient(), log, secrets: input.secrets ?? {}, window: { from: new Date(), to: new Date(Date.now() + 90 * 86_400_000) }, defaultTz: c.REGION_TZ }
+  const cfg = input.config ?? ((await connector.configure(input.match ?? (input.secrets ? { secrets: input.secrets } : {}), ctx)) as Record<string, unknown>)
   const fingerprint = connector.fingerprint(cfg)
+  const wrapped = input.secrets && Object.keys(input.secrets).length ? wrapSecret(JSON.stringify(input.secrets), c.custodyKeys, c.CUSTODY_KEY_VERSION) : null
 
   const blocked = await getDb().select().from(removalBlock).where(eq(removalBlock.fingerprint, fingerprint)).limit(1)
   if (blocked[0]) throw new SourceError('The owner of this source asked not to be listed here.', 403, 'Forbidden')
@@ -80,6 +85,8 @@ export async function connectSource(h: HostRow, input: ConnectInput): Promise<{ 
       defaultVisibility: input.defaultVisibility ?? 'public',
       audience: input.audience ?? null,
       status: 'active',
+      secretsKeyVersion: wrapped?.keyVersion ?? null,
+      secretsCiphertext: wrapped?.blob ?? null,
     })
     .returning()
   if (input.rawEvents?.length && PUSH_SOURCE_TYPES.has(input.type)) {

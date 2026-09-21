@@ -103,7 +103,7 @@ eventRoutes.patch('/:id', async (c) => {
     } else {
       override.visibility = to
       delete override.allowWidenTo
-      await recordAudit({ hostId: h.id, actor: h.did, action: 'event.narrowed', subject: r.id, detail: { from: r.visibility, to } })
+      await recordAudit({ hostId: h.id, actor: (c.get('actor') ?? h).did, action: 'event.narrowed', subject: r.id, detail: { from: r.visibility, to } })
     }
   }
   await getDb().update(sourceEvent).set({ override }).where(eq(sourceEvent.id, r.id))
@@ -166,7 +166,7 @@ eventRoutes.post('/:id/invites', async (c) => {
   const b = await body(c)
   const kind = (str(b.kind, 'kind', { optional: true }) || 'read-join') as 'join' | 'read' | 'read-join'
   const inv = await gate().createInvite(r.spaceUri, h.did as `did:${string}`, { kind, expiresInHours: typeof b.expiresInHours === 'number' ? b.expiresInHours : 72, maxUses: typeof b.maxUses === 'number' ? b.maxUses : 20 })
-  await recordAudit({ hostId: h.id, actor: h.did, action: 'invite.created', subject: r.id, detail: { kind } })
+  await recordAudit({ hostId: h.id, actor: (c.get('actor') ?? h).did, action: 'invite.created', subject: r.id, detail: { kind } })
   const rkey = r.atUri?.split('/').pop() ?? r.rkey
   return c.json({ id: inv.id, url: `${config().WEB_PUBLIC_URL}/join/${inv.token}?e=${encodeURIComponent(`${h.did}/${rkey}`)}`, expiresAt: inv.expiresAt }, 201)
 })
@@ -208,7 +208,7 @@ eventRoutes.post('/:id/invite-people', async (c) => {
       pendingEmails.push(e)
     }
   }
-  await recordAudit({ hostId: h.id, actor: h.did, action: 'invite.people', subject: r.id, detail: { handles: resolved.length, emails: pendingEmails.length } })
+  await recordAudit({ hostId: h.id, actor: (c.get('actor') ?? h).did, action: 'invite.people', subject: r.id, detail: { handles: resolved.length, emails: pendingEmails.length } })
   return c.json({ resolved, pendingEmails })
 })
 
@@ -219,7 +219,7 @@ eventRoutes.post('/:id/requests/:requestId', async (c) => {
   const action = str(b.action, 'action')
   if (action !== 'approve' && action !== 'deny') throw new ApiError(400, 'InvalidInput', 'action must be approve or deny.')
   const res = await gate().decideRequest(c.req.param('requestId'), h.did as `did:${string}`, action)
-  await recordAudit({ hostId: h.id, actor: h.did, action: `request.${action}`, subject: r.id })
+  await recordAudit({ hostId: h.id, actor: (c.get('actor') ?? h).did, action: `request.${action}`, subject: r.id })
   return c.json(res)
 })
 

@@ -87,8 +87,9 @@ export async function buildPreview(match: DetectMatch, file?: DetectFile): Promi
     if (res.meta?.tz) tz = res.meta.tz
     if (res.meta?.title && !cfg.title) cfg.title = res.meta.title
     cfg.tz = tz
-    if (match.type === 'sheet') {
+    if (match.type === 'sheet' && res.meta?.csv) {
       const m = (cfg.mapping ?? {}) as CsvMapping
+      csvInfo = { headers: res.meta.csv.headers, mapping: m, sample: res.meta.csv.sample, unmapped: res.meta.csv.unmapped, dropped: res.meta.csv.dropped }
       if (!m.name || !m.start) notes.push('We could not tell which columns hold the event name and the start date. Use a header row with "Title" and "Date" (and optionally "Start Time", "End Time", "Venue", "Details", "Link", "Cost").')
     }
   }

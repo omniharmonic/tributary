@@ -3,6 +3,7 @@
  * `X-Requested-With: tributary` (CSRF) and credentials. `VITE_MOCK_API=1` swaps in
  * `mock.ts` so the whole app runs without a backend.
  */
+import { actingHostId } from './acting'
 import { ApiError, isApiErrorBody } from './errors'
 import type {
   ApiKey,
@@ -15,6 +16,7 @@ import type {
   Inbound,
   JoinResult,
   LedgerEvent,
+  ManagedHost,
   OrgRole,
   OrgRoleName,
   Me,
@@ -39,6 +41,9 @@ type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
 async function call<T>(method: Method, path: string, body?: unknown, init: { form?: FormData; accept?: string } = {}): Promise<T> {
   const headers: Record<string, string> = { accept: init.accept ?? 'application/json' }
   if (method !== 'GET') headers['x-requested-with'] = 'tributary'
+  // Organisation roles: act as another host for the length of this tab (lib/acting.ts).
+  const acting = actingHostId()
+  if (acting) headers['x-acting-host'] = acting
   let payload: BodyInit | undefined
   if (init.form) payload = init.form
   else if (body !== undefined) {
@@ -92,6 +97,8 @@ export interface Api {
 
   sources(): Promise<{ sources: Source[] }>
   addSource(body: { match?: DetectMatch; previewId?: string; defaultVisibility: Visibility; audience?: Audience }): Promise<Source>
+  /** Connect Eventbrite with a private token (live sync of the organisation's events). */
+  connectEventbrite(token: string): Promise<{ source: Source; created: boolean }>
   source(id: string): Promise<SourceDetail>
   patchSource(id: string, body: { defaultVisibility?: Visibility; audience?: Audience; paused?: boolean; interval?: number; tz?: string }): Promise<Source | { pendingConfirmation: number }>
   syncSource(id: string): Promise<{ jobId: string }>
@@ -128,6 +135,8 @@ export interface Api {
   roles(): Promise<{ roles: OrgRole[] }>
   addRole(body: { handle: string; role: OrgRoleName }): Promise<void>
   removeRole(did: string): Promise<void>
+  /** Hosts I may act for. */
+  managed(): Promise<{ hosts: ManagedHost[] }>
 }
 
 const qs = (o: Record<string, string | number | undefined>) => {
@@ -178,6 +187,7 @@ export const realApi: Api = {
 
   sources: () => call('GET', '/api/sources'),
   addSource: (body) => call('POST', '/api/sources', body),
+  connectEventbrite: (token) => call('POST', '/api/sources', { type: 'eventbrite', secrets: { token }, defaultVisibility: 'public' }),
   source: (id) => call('GET', `/api/sources/${id}`),
   patchSource: (id, body) => call('PATCH', `/api/sources/${id}`, body),
   syncSource: (id) => call('POST', `/api/sources/${id}/sync`, {}),
@@ -212,6 +222,7 @@ export const realApi: Api = {
   roles: () => call('GET', '/api/me/roles'),
   addRole: (body) => call('POST', '/api/me/roles', body),
   removeRole: (did) => call('DELETE', `/api/me/roles/${encodeURIComponent(did)}`),
+  managed: () => call('GET', '/api/me/managed'),
 }
 
 let api: Api = realApi

@@ -78,7 +78,7 @@ export interface Preview {
   defaultVisibility: Visibility
   signals: { private: number; conferenceLinks: number }
   expiresAt: string
-  /** Present for CSV uploads. */
+  /** Present for CSV uploads and Google Sheets. */
   csv?: CsvInfo
 }
 
@@ -274,6 +274,14 @@ export interface AudienceInfo {
 export type OrgRoleName = 'owner' | 'editor' | 'viewer'
 export interface OrgRole {
   did: string
+  role: OrgRoleName
+}
+
+/** A host (other than my own) I hold a role on; `GET /api/me/managed`. */
+export interface ManagedHost {
+  id: string
+  handle: string
+  displayName: string
   role: OrgRoleName
 }
 

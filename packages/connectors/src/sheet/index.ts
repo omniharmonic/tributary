@@ -63,7 +63,7 @@ export const sheetConnector: Connector<SheetConfig, null> = {
     const parsed = parseCsv(res.text())
     const mapping = { ...guessMapping(parsed.headers), ...(cfg.mapping ?? {}) }
     const out = rowsToRawEvents(parsed, mapping, cfg.tz ?? ctx.defaultTz, createHash('sha256').update(cfg.sheetId).digest('hex'))
-    return { events: out.events, cursor: null, complete: true, etag: res.etag, lastModified: res.lastModified, meta: { title: cfg.title, url: `https://docs.google.com/spreadsheets/d/${cfg.sheetId}` } }
+    return { events: out.events, cursor: null, complete: true, etag: res.etag, lastModified: res.lastModified, meta: { title: cfg.title, url: `https://docs.google.com/spreadsheets/d/${cfg.sheetId}`, csv: { headers: parsed.headers, sample: parsed.rows.slice(0, 3), unmapped: out.unmapped, dropped: out.dropped } } }
   },
   fingerprint: (cfg) => `sheet:${cfg.sheetId}${cfg.gid ? `#${cfg.gid}` : ''}`,
   label: (cfg) => cfg.title ? `Google Sheet: ${cfg.title}` : 'Google Sheet',

@@ -92,6 +92,9 @@ JSON of sources, ledger and overrides.
 ### `POST /api/sources`
 Add a source to the signed-in host: `{ "match": <DetectMatch> | "previewId": "pv_…", "defaultVisibility": "public" | "unlisted" | "members" | "held", "audience": Audience? }`. `409 Conflict` when the fingerprint is connected by another host. Response `201` with the source and `{ "syncJobId" }`.
 
+### `POST /api/sources` with a token (Eventbrite)
+`{ "type": "eventbrite", "secrets": { "token": "<private token>" }, "defaultVisibility" }` → `201 { source, created }`. The token is encrypted at rest and only ever sent to Eventbrite. `400` with a plain message when the token is rejected or has no organisation.
+
 ### `GET /api/sources/:id`
 The source plus `rules` and the last 10 `syncRuns` (`{ startedAt, finishedAt, ok, fetched, published, updated, cancelled, removed, held, error }`).
 
@@ -169,9 +172,11 @@ A signed-in viewer asks for a place on a gated event → `{ state }`.
 ### `POST /api/events/:id/requests/:requestId`
 `{ "action": "approve" | "deny" }`.
 
-## Organisation roles (M4, shape reserved)
+## Organisation roles
 
 `GET /api/me/roles`, `POST /api/me/roles { "did" | "handle", "role": "owner" | "editor" | "viewer" }`, `DELETE /api/me/roles/:did`.
+
+`GET /api/me/managed` → `{ hosts: [{ id, handle, displayName, role }] }`: hosts where the signed-in DID holds a role. Send `X-Acting-Host: <hostId>` on any `/api/me|sources|events|confirmations` request to act as that host: viewers may only GET; editors may do everything except delete-everything, API keys, roles, take-control, revoke-sync and inbound channels (owner only). `GET /api/me` then carries `acting: { role, as, actorDid }`. Audit rows name the acting person.
 
 ## Public, read-only (the discovery view served by the console)
 

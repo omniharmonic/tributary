@@ -14,6 +14,7 @@ import { uploadConnector } from './upload/index.js'
 import { manualConnector } from './manual/index.js'
 import { apiConnector } from './api/index.js'
 import { sheetConnector } from './sheet/index.js'
+import { eventbriteConnector } from './eventbrite/index.js'
 
 export * from './sdk.js'
 export { PUSH_SOURCE_TYPES } from './api/index.js'
@@ -34,6 +35,7 @@ export const CONNECTORS: ReadonlyArray<Connector<any, any>> = [
   manualConnector,
   apiConnector,
   sheetConnector,
+  eventbriteConnector,
 ]
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
