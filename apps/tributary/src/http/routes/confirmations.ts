@@ -5,11 +5,9 @@ import { Hono } from 'hono'
 import { and, desc, eq, isNull } from 'drizzle-orm'
 import { toCard, type RawEvent } from '@tributary/event-model'
 import { getDb } from '../../db/index.js'
-import { pendingConfirmation, sourceEvent } from '../../db/schema.js'
-import { recordAudit } from '../../lib/audit.js'
-import { expandConfirmed, type ExtractedEvent } from '../../lib/extract.js'
-import { enqueueSync } from '../../jobs/index.js'
-import { pushRawEvents, pushSourceFor } from '../../lib/sources.js'
+import { pendingConfirmation } from '../../db/schema.js'
+import type { ExtractedEvent } from '../../lib/extract.js'
+import { resolveConfirmation } from '../../lib/confirm.js'
 import { loadPreview } from '../../lib/preview.js'
 import { ApiError, body, notFound, requireHost, str, type Vars } from '../context.js'
 
@@ -65,49 +63,13 @@ confirmationRoutes.get('/:id', async (c) => {
 
 confirmationRoutes.post('/:id', async (c) => {
   const h = requireHost(c)
-  const rows = await getDb().select().from(pendingConfirmation).where(and(eq(pendingConfirmation.id, c.req.param('id')), eq(pendingConfirmation.hostId, h.id), isNull(pendingConfirmation.resolvedAt))).limit(1)
-  const r = rows[0]
-  if (!r) throw notFound()
   const b = await body(c)
   const action = str(b.action, 'action')
   if (action !== 'confirm' && action !== 'reject') throw new ApiError(400, 'InvalidInput', 'action must be confirm or reject.')
-  const db = getDb()
-  if (action === 'reject') {
-    await db.update(pendingConfirmation).set({ resolvedAt: new Date(), resolution: 'rejected' }).where(eq(pendingConfirmation.id, r.id))
-    await recordAudit({ hostId: h.id, actor: h.did, action: `confirmation.rejected`, subject: r.id, detail: { kind: r.kind } })
-    return c.json({ ok: true, resolution: 'rejected' })
-  }
-
-  const p = r.payload as { extracted?: ExtractedEvent[]; eventId?: string; to?: string; sourceDefault?: string }
-  if (r.kind === 'extracted' && p.extracted) {
-    const edits = (typeof b.edits === 'object' && b.edits ? (b.edits as Record<string, Partial<RawEvent>>) : {})
-    const src = await pushSourceFor(h, 'extract')
-    const raws: RawEvent[] = []
-    for (const e of p.extracted) {
-      const merged: RawEvent = { ...e.raw, ...(edits[e.raw.externalId] ?? {}) }
-      if (!merged.name?.trim()) continue
-      raws.push(...expandConfirmed(merged))
-    }
-    await pushRawEvents(src.id, raws)
-    await db.update(pendingConfirmation).set({ resolvedAt: new Date(), resolution: 'confirmed' }).where(eq(pendingConfirmation.id, r.id))
-    await recordAudit({ hostId: h.id, actor: h.did, action: 'confirmation.confirmed', subject: r.id, detail: { kind: 'extracted', events: raws.length } })
-    await enqueueSync(src.id, 'manual')
-    return c.json({ ok: true, resolution: 'confirmed', published: raws.length })
-  }
-  if (r.kind === 'widen' && p.eventId && p.to) {
-    const ev = await db.select().from(sourceEvent).where(and(eq(sourceEvent.id, p.eventId), eq(sourceEvent.hostId, h.id))).limit(1)
-    if (ev[0]) {
-      const override: Record<string, unknown> = { ...(ev[0].override ?? {}), allowWidenTo: p.to }
-      if (!p.sourceDefault) override.visibility = p.to
-      await db.update(sourceEvent).set({ override }).where(eq(sourceEvent.id, ev[0].id))
-      await recordAudit({ hostId: h.id, actor: h.did, action: 'event.widened', subject: ev[0].id, detail: { to: p.to } })
-      await enqueueSync(ev[0].sourceId, 'manual')
-    }
-    await db.update(pendingConfirmation).set({ resolvedAt: new Date(), resolution: 'confirmed' }).where(eq(pendingConfirmation.id, r.id))
-    return c.json({ ok: true, resolution: 'confirmed' })
-  }
-  await db.update(pendingConfirmation).set({ resolvedAt: new Date(), resolution: 'confirmed' }).where(eq(pendingConfirmation.id, r.id))
-  return c.json({ ok: true, resolution: 'confirmed' })
+  const edits = typeof b.edits === 'object' && b.edits ? (b.edits as Record<string, Partial<RawEvent>>) : {}
+  const out = await resolveConfirmation(h.id, c.req.param('id'), action, edits, (c.get('actor') ?? h).did)
+  if (!out.ok) throw out.reason === 'not-found' ? notFound() : new ApiError(409, 'Conflict', 'This item was already handled.')
+  return c.json({ ok: true, resolution: out.resolution, ...(out.published !== undefined ? { published: out.published } : {}) })
 })
 
 /** Queue an extraction for a signed-in host (from the one-box or the email/bot channels). */

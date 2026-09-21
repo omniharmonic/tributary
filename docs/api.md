@@ -152,6 +152,9 @@ The inbound webhook (Zapier, Make, n8n). Same body as `/api/v1/events`. Authenti
 ### `POST /api/inbound/email`
 From the Cloudflare Email Worker (signed with `INBOUND_EMAIL_SECRET`). `{ "to": "add+<token>@…", "from": "…", "spf": "pass", "dkim": "pass", "dmarc": "pass", "raw": "<base64 RFC822>" }`. `.ics` parts publish when the sender aligns with the host's verified email; anything else → confirmation queue.
 
+### Telegram
+`GET /api/me/telegram` → `{ enabled, linked, bot }`; `POST /api/me/telegram/link` → `{ code, bot, url }` (open the URL, or send `/start <code>` to the bot); `DELETE /api/me/telegram` unlinks. The bot posts updates to `POST /api/inbound/telegram` (secret header). A forwarded message or flyer photo is extracted and answered with Confirm/Reject buttons; nothing publishes without Confirm.
+
 ### API keys
 `GET /api/me/keys`, `POST /api/me/keys { "name" }` → `{ "id", "name", "key": "tb_…" }` shown once, `DELETE /api/me/keys/:id`. `GET /api/me/inbound` → `{ "email": "add+<token>@in.<domain>", "webhookUrl": "…", "webhookSecret": "…" }`, `POST /api/me/inbound/rotate`.
 

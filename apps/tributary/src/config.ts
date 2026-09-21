@@ -41,6 +41,8 @@ const schema = z.object({
   CUSTODY_KEYS: z.string().default(`v1:${Buffer.alloc(32, 7).toString('base64')}`),
   CUSTODY_KEY_VERSION: z.string().default('v1'),
   INBOUND_EMAIL_SECRET: z.string().default(''),
+  TELEGRAM_BOT_TOKEN: z.string().default(''),
+  TELEGRAM_WEBHOOK_SECRET: z.string().default(''),
   STEWARD_KEY: z.string().default(''),
   OAUTH_PRIVATE_JWK: z.string().default(''),
 
@@ -106,5 +108,6 @@ export function redactedConfig(c: Config): Record<string, string | number | bool
     photon: c.PHOTON_URL ? 'configured' : 'off',
     googleApi: c.GOOGLE_API_KEY ? 'configured' : 'off',
     extraction: c.EXTRACT_MODEL_API_KEY ? 'configured' : 'off',
+    telegram: c.TELEGRAM_BOT_TOKEN ? 'configured' : 'off',
   }
 }

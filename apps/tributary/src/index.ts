@@ -12,6 +12,7 @@ import { createApp } from './http/app.js'
 import { startJobs, stopJobs } from './jobs/index.js'
 import { log } from './lib/logging.js'
 import { resetDevMailSink } from './lib/mail.js'
+import { ensureTelegramWebhook } from './http/routes/telegram.js'
 
 export async function main(): Promise<{ close: () => Promise<void> }> {
   const c = config()
@@ -22,6 +23,7 @@ export async function main(): Promise<{ close: () => Promise<void> }> {
   const server = serve({ fetch: app.fetch, port: c.TRIBUTARY_PORT })
   log.info('http listening', { port: c.TRIBUTARY_PORT })
   if (!c.TRIBUTARY_NO_JOBS) await startJobs()
+  await ensureTelegramWebhook()
   return {
     close: async () => {
       await stopJobs()

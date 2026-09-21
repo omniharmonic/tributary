@@ -15,7 +15,7 @@ Deployed: https://tributary.freeskool.directory (see `deployment.md`).
 | F7 | Image recovery | Done — order per §11, re-encode with sharp; rate not yet measured on 50 real events |
 | F8 | Updates and cancellations | Done — grace periods in `reconcile.ts` |
 | F9 | No duplicate writes | Done — smoke test asserts zero writes on re-sync |
-| F10 | Extraction with confirmation | Built; extraction is off in production until `EXTRACT_MODEL_API_KEY` is set |
+| F10 | Extraction with confirmation | Built (one-box, email, Telegram all land in the queue; the identity step redirects to `/confirm/:id`); extraction is off in production until `EXTRACT_MODEL_API_KEY` is set |
 | F11 | Email in | Handler built; the Cloudflare Email Worker is not deployed |
 | F12 | Claim | Not built (Listed tier waits for counsel; there is nothing to claim yet) |
 | F13 | Takeover and exit | Take-control, revoke, delete done; migration to a second PDS not exercised |
@@ -40,7 +40,8 @@ Deployed: https://tributary.freeskool.directory (see `deployment.md`).
 ## Connectors
 
 Done: `ics`, `gcal-public` (API key path untested without a key), `luma`, `meetup`, `tribe`, `squarespace`, `jsonld-page`, `upload` (.ics, .csv with column mapper), `sheet` (Google Sheets shared by link, column mapper in the preview), `eventbrite` (private token, encrypted per source), `manual`, `api`/webhook/mcp, `email`, `extract`.
-Not built: Google OAuth, Microsoft Graph, Discord, Localist, Mobilize, Telegram, bookmarklet.
+`telegram` bot (link by code, forward or photo → confirm buttons; needs `TELEGRAM_BOT_TOKEN` + `TELEGRAM_WEBHOOK_SECRET`).
+Not built: Google OAuth, Microsoft Graph, Discord, Localist, Mobilize, bookmarklet.
 
 ## Operations
 

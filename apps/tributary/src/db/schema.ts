@@ -244,6 +244,9 @@ export const inboundAddress = pgTable('tb_inbound_address', {
   emailToken: text('email_token').notNull(),
   webhookToken: text('webhook_token').notNull(),
   webhookSecret: text('webhook_secret').notNull(),
+  /** Telegram (P7): the chat linked by a one-time code. */
+  telegramChatId: text('telegram_chat_id'),
+  telegramLinkCode: text('telegram_link_code'),
   rotatedAt: timestamp('rotated_at', { withTimezone: true }).notNull().defaultNow(),
 })
 

@@ -16,6 +16,7 @@ import { confirmationRoutes } from './routes/confirmations.js'
 import { eventRoutes, joinRoutes } from './routes/events.js'
 import { meRoutes } from './routes/me.js'
 import { reportRoutes, stewardRoutes } from './routes/moderation.js'
+import { telegramInbound, telegramMeRoutes } from './routes/telegram.js'
 import { oneBoxRoutes, publicRoutes } from './routes/public.js'
 import { sourceRoutes } from './routes/sources.js'
 import { inboundEmailRoutes, v1Routes, webhookRoutes } from './routes/v1.js'
@@ -69,6 +70,8 @@ export function createApp(): Hono<{ Variables: Vars }> {
   api.route('/v1', v1Routes)
   api.route('/webhook', webhookRoutes)
   api.route('/inbound/email', inboundEmailRoutes)
+  api.route('/inbound/telegram', telegramInbound)
+  api.route('/me/telegram', telegramMeRoutes)
   api.route('/join', joinRoutes)
   api.route('/public/report', reportRoutes)
   api.route('/steward', stewardRoutes)
