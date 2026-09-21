@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { guessMapping, parseCsv, parseDateTime, rowsToRawEvents } from '../src/lib/csv.js'
+import { guessMapping, parseCsv, parseDateTime, rowsToRawEvents } from '@tributary/connectors'
 
 const sample = `Title,Date,Start Time,End Time,Venue,Details,Link,Cost
 Seed Swap,10/4/2026,10:00 AM,1:00 PM,Boulder Public Library,Bring seeds,https://x.org/seed,Free

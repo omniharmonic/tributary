@@ -1,5 +1,6 @@
 import { Link, useParams } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useState } from 'react'
 import { api } from '../lib/api'
 import { plainError } from '../lib/errors'
 import { useMe } from '../lib/queries'
@@ -7,6 +8,8 @@ import { LockIcon, ProvenanceBadge, SourceBadge, StatusBadge, platformLabel } fr
 import { Placeholder } from '../components/EventCard'
 import { PageState } from '../components/PageState'
 import { Footer, Page } from '../components/Shell'
+import { Sheet } from '../components/Sheet'
+import { REPORT_REASONS, type ReportReason } from '../lib/types'
 import { NotFoundRoute } from './Misc'
 
 export function EventRoute() {
@@ -122,6 +125,7 @@ function EventBody({ e, signedIn, onRequest, requesting, requestError }: { e: Aw
         </a>
       </div>
       <p className="hint">Listed from {platformLabel(c.platform)}. The source is the truth: to change it, edit it there.</p>
+      <ReportListing atUri={e.atUri ?? `at://${e.did}/community.lexicon.calendar.event/${e.rkey}`} />
     </article>
   )
 }
@@ -144,6 +148,80 @@ export function Markdownish({ text }: { text: string }) {
           )}
         </p>
       ))}
+    </>
+  )
+}
+
+/** F19: a report link on every card, into the steward queue. */
+function ReportListing({ atUri }: { atUri: string }) {
+  const [open, setOpen] = useState(false)
+  const [reason, setReason] = useState<ReportReason>('wrong-details')
+  const [details, setDetails] = useState('')
+  const send = useMutation({ mutationFn: () => api.report({ atUri, reason, details: details.trim() || undefined }) })
+  const close = () => {
+    setOpen(false)
+    if (send.isSuccess) {
+      send.reset()
+      setDetails('')
+    }
+  }
+  return (
+    <>
+      <p className="text-sm">
+        <button type="button" className="text-ink-soft underline underline-offset-2" onClick={() => setOpen(true)}>
+          Report this listing
+        </button>
+      </p>
+      <Sheet open={open} onClose={close} title="Report this listing">
+        {send.isSuccess ? (
+          <div className="grid gap-3">
+            <p role="status">{send.data.message}</p>
+            <div>
+              <button type="button" className="btn" onClick={close}>
+                Done
+              </button>
+            </div>
+          </div>
+        ) : (
+          <form
+            className="grid gap-3"
+            onSubmit={(ev) => {
+              ev.preventDefault()
+              send.mutate()
+            }}
+          >
+            <p className="text-sm text-ink-soft">Tell the steward what is wrong. Reports are read by a person; nothing is removed automatically.</p>
+            <label className="field">
+              <span>Reason</span>
+              <select className="input" value={reason} onChange={(ev) => setReason(ev.target.value as ReportReason)}>
+                {REPORT_REASONS.map((r) => (
+                  <option key={r.value} value={r.value}>
+                    {r.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
+              <span>Details (optional)</span>
+              <textarea className="input" rows={4} maxLength={2000} value={details} onChange={(ev) => setDetails(ev.target.value)} />
+              <span className="hint">{details.length}/2000</span>
+            </label>
+            {send.error ? (
+              <p className="notice notice-warn" role="alert">
+                {plainError(send.error)}
+              </p>
+            ) : null}
+            <div className="flex gap-2">
+              <button type="submit" className="btn btn-primary" disabled={send.isPending}>
+                {send.isPending ? 'Sending…' : 'Send'}
+              </button>
+              <button type="button" className="btn" onClick={close}>
+                Cancel
+              </button>
+            </div>
+          </form>
+        )}
+      </Sheet>
     </>
   )
 }

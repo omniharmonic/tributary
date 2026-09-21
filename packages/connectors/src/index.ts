@@ -13,10 +13,12 @@ import { jsonldPageConnector } from './jsonld-page/index.js'
 import { uploadConnector } from './upload/index.js'
 import { manualConnector } from './manual/index.js'
 import { apiConnector } from './api/index.js'
+import { sheetConnector } from './sheet/index.js'
 
 export * from './sdk.js'
 export { PUSH_SOURCE_TYPES } from './api/index.js'
 export * from './ics/parse.js'
+export * from './csv.js'
 export { extractJsonLdEvents, extractPageMeta } from './jsonld-page/extract.js'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -31,6 +33,7 @@ export const CONNECTORS: ReadonlyArray<Connector<any, any>> = [
   uploadConnector,
   manualConnector,
   apiConnector,
+  sheetConnector,
 ]
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

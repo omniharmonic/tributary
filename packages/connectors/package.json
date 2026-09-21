@@ -20,6 +20,7 @@
   "dependencies": {
     "@tributary/event-model": "workspace:*",
     "@tributary/ssrf-fetch": "workspace:*",
+    "csv-parse": "^7.0.2",
     "ical.js": "^2.2.1",
     "linkedom": "^0.18.13",
     "luxon": "^3.7.2"

@@ -435,6 +435,11 @@ export const mockApi: Api = {
     requireMe()
     await delay(200)
   },
+  async report(body) {
+    await delay(300)
+    if (!body.atUri) throw new ApiError('InvalidInput', 'That listing could not be identified.', 400)
+    return { message: 'Thank you. A steward will look at this.' }
+  },
   async redeemInvite(token) {
     requireMe()
     await delay(400)

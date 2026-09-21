@@ -237,11 +237,23 @@ export interface PublicHost {
   about?: string | null
 }
 
+export type ReportReason = 'spam' | 'not-an-event' | 'wrong-details' | 'private-information' | 'harassment' | 'copyright' | 'other'
+export const REPORT_REASONS: Array<{ value: ReportReason; label: string }> = [
+  { value: 'spam', label: 'Spam or advertising' },
+  { value: 'not-an-event', label: 'Not an event' },
+  { value: 'wrong-details', label: 'Wrong details (time, place, link)' },
+  { value: 'private-information', label: 'Shows private information' },
+  { value: 'harassment', label: 'Harassment or hate' },
+  { value: 'copyright', label: 'Copyright' },
+  { value: 'other', label: 'Something else' },
+]
+
 export interface PublicEvent {
   card: EventCard
   host: PublicHost
   did: string
   rkey: string
+  atUri?: string | null
   /** Present only for a signed-in viewer who is entitled to it. */
   audienceName?: string | null
   locations?: Array<{ name?: string; street?: string; locality?: string; region?: string; coarse?: boolean }>

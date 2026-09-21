@@ -18,7 +18,7 @@ import { httpClient } from './http-client.js'
 import { id } from './ids.js'
 import { log } from './logging.js'
 import { extractEvents, type ExtractedEvent } from './extract.js'
-import { guessMapping, parseCsv, rowsToRawEvents, type CsvMapping } from './csv.js'
+import { guessMapping, parseCsv, rowsToRawEvents, type CsvMapping } from '@tributary/connectors'
 
 export const PREVIEW_TTL_MS = 2 * 3_600_000
 

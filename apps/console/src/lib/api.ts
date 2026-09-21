@@ -23,6 +23,7 @@ import type {
   PublicEvent,
   PublicHost,
   RawEvent,
+  ReportReason,
   Rule,
   SignupResponse,
   Source,
@@ -118,6 +119,9 @@ export interface Api {
   invitePeople(eventId: string, body: { handles: string[]; emails: string[] }): Promise<{ resolved: Array<{ handle: string; did: string }>; pendingEmails: string[] }>
   decideRequest(eventId: string, requestId: string, action: 'approve' | 'deny'): Promise<void>
 
+  /** Report a listing to the steward queue (F19). Anonymous allowed. */
+  report(body: { atUri: string; reason: ReportReason; details?: string }): Promise<{ message: string }>
+
   /** Redeem a join link as the signed-in viewer. */
   redeemInvite(token: string): Promise<JoinResult>
 
@@ -200,6 +204,8 @@ export const realApi: Api = {
   deleteInvite: (eventId, inviteId) => call('DELETE', `/api/events/${eventId}/invites/${inviteId}`),
   invitePeople: (eventId, body) => call('POST', `/api/events/${eventId}/invite-people`, body),
   decideRequest: (eventId, requestId, action) => call('POST', `/api/events/${eventId}/requests/${requestId}`, { action }),
+
+  report: (body) => call('POST', '/api/public/report', body),
 
   redeemInvite: (token) => call('POST', `/api/join/${encodeURIComponent(token)}`, {}),
 

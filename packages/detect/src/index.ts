@@ -134,6 +134,12 @@ function knownHost(u: URL): DetectMatch[] {
     else out.push({ type: 'gcal-public', confidence: 0.2, platform: 'google', hint: {}, note: NOTES.gcalPrivate })
     return out
   }
+  if (/(^|\.)docs\.google\.com$/.test(h) && /^\/spreadsheets\/d\/(?:e\/)?[A-Za-z0-9_-]{10,}/.test(path)) {
+    const id = /^\/spreadsheets\/d\/(?:e\/)?([A-Za-z0-9_-]{10,})/.exec(path)![1]!
+    const gid = u.searchParams.get('gid') ?? /gid=(\d+)/.exec(u.hash)?.[1] ?? undefined
+    out.push({ type: 'sheet', confidence: 0.95, platform: 'sheet', hint: { sheetId: id, gid, published: path.includes('/d/e/') }, note: 'The sheet must be shared with "anyone with the link". We will ask you to match the columns.' })
+    return out
+  }
   if (h === 'lu.ma' || h === 'luma.com') {
     const seg = path.split('/').filter(Boolean)
     const first = seg[0] ?? ''
@@ -390,6 +396,8 @@ export function describeMatch(m: DetectMatch): string {
       return m.platform === 'ics' ? `Calendar feed at ${hostOf(h.url)}` : `${cap(m.platform)} calendar feed`
     case 'jsonld-page':
       return h.list ? `Events listed on ${hostOf(h.url)}` : m.platform === 'web' ? `Event page on ${hostOf(h.url)}` : `${cap(m.platform)} event`
+    case 'sheet':
+      return 'Google Sheet'
     case 'upload':
       return h.kind === 'ics' ? `Calendar file ${String(h.name ?? '')}`.trim() : `Spreadsheet ${String(h.name ?? '')}`.trim()
     case 'extract':

@@ -243,6 +243,9 @@ importers:
       '@tributary/ssrf-fetch':
         specifier: workspace:*
         version: link:../ssrf-fetch
+      csv-parse:
+        specifier: ^7.0.2
+        version: 7.0.2
       ical.js:
         specifier: ^2.2.1
         version: 2.2.1

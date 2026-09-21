@@ -24,7 +24,7 @@ Deployed: https://tributary.freeskool.directory (see `deployment.md`).
 | F16 | API, webhook, MCP | Done |
 | F17 | Regional discovery | Console directory view (time-first, categories, webcal, badges); the atmo fork is not built |
 | F18 | Cross-source duplicates | Done in the public view (`groupDuplicates`) |
-| F19 | Moderation | Not built (no report link, no steward queue) |
+| F19 | Moderation | Report link on every event page, steward queue (`/api/steward/reports`), de-index and custodial takedown |
 | F20 | Privacy audit | Nightly job + parse-time redaction |
 | F21 | Host dashboard | Done |
 | F22 | Notifications | Outage mail and monthly digest done; confirmation-awaiting mail on the email channel only |
@@ -39,8 +39,8 @@ Deployed: https://tributary.freeskool.directory (see `deployment.md`).
 
 ## Connectors
 
-Done: `ics`, `gcal-public` (API key path untested without a key), `luma`, `meetup`, `tribe`, `squarespace`, `jsonld-page`, `upload` (.ics, .csv), `manual`, `api`/webhook/mcp, `email`, `extract`.
-Not built: Eventbrite API, Google OAuth, Microsoft Graph, Discord, Localist, Mobilize, Google Sheets, Telegram, bookmarklet.
+Done: `ics`, `gcal-public` (API key path untested without a key), `luma`, `meetup`, `tribe`, `squarespace`, `jsonld-page`, `upload` (.ics, .csv with column mapper), `sheet` (Google Sheets published as CSV; mapping guessed from the template headers), `manual`, `api`/webhook/mcp, `email`, `extract`.
+Not built: Eventbrite API, Google OAuth, Microsoft Graph, Discord, Localist, Mobilize, Telegram, bookmarklet.
 
 ## Operations
 
