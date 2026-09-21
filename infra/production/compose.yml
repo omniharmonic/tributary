@@ -6,6 +6,10 @@
 # on the box; this stack joins its compose network (`production_default`) so Caddy can
 # reverse-proxy `tributary:4100`. The PDS is Free School's (`pds.freeskool.directory`),
 # reached over the public hostname like any client would.
+#
+# The explicit project name matters: Free School's compose file also lives in a directory
+# called `production`, and two projects with one name share containers and volumes.
+name: tributary
 services:
   postgres:
     image: postgres:16-alpine
