@@ -1,0 +1,88 @@
+# Tributary production stack, beside Free School on the same Hetzner box.
+#
+#   docker compose --env-file infra/production/.env -f infra/production/compose.yml up -d --build
+#
+# Nothing here publishes a port. Free School's Caddy (`production-web-1`) is the one edge
+# on the box; this stack joins its compose network (`production_default`) so Caddy can
+# reverse-proxy `tributary:4100`. The PDS is Free School's (`pds.freeskool.directory`),
+# reached over the public hostname like any client would.
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: tributary
+      POSTGRES_DB: tributary
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U tributary']
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  gate:
+    build:
+      context: ../..
+      target: gate
+    restart: unless-stopped
+    init: true
+    environment:
+      GATE_PORT: '4200'
+      DATABASE_URL: postgres://tributary:${POSTGRES_PASSWORD}@postgres:5432/tributary
+      GATE_SERVICE_SECRET: ${GATE_SERVICE_SECRET:?Set GATE_SERVICE_SECRET}
+      GATE_BLOB_DIR: /data/gate-blobs
+      GATE_PUBLIC_URL: https://${TRIBUTARY_HOST:?Set TRIBUTARY_HOST}/gate
+    volumes:
+      - gate_blobs:/data/gate-blobs
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://localhost:4200/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 60s
+      retries: 3
+    networks: [default, edge]
+
+  tributary:
+    build:
+      context: ../..
+      target: tributary
+    restart: unless-stopped
+    init: true
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      TRIBUTARY_PORT: '4100'
+      DATABASE_URL: postgres://tributary:${POSTGRES_PASSWORD}@postgres:5432/tributary
+      WEB_PUBLIC_URL: https://${TRIBUTARY_HOST:?Set TRIBUTARY_HOST}
+      GATE_URL: http://gate:4200
+      CONSOLE_DIST: /app/apps/console/dist
+      TRIBUTARY_VERSION: ${TRIBUTARY_VERSION:-dev}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      gate:
+        condition: service_started
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://localhost:4100/api/public/health').then(r=>process.exit(r.status<500?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 8s
+      start_period: 120s
+      retries: 3
+    stop_grace_period: 45s
+    networks: [default, edge]
+
+volumes:
+  postgres:
+  gate_blobs:
+
+networks:
+  default:
+  # Free School's compose network, where the box's one Caddy lives.
+  edge:
+    external: true
+    name: ${EDGE_NETWORK:-production_default}

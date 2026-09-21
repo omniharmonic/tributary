@@ -1,0 +1,10 @@
+node_modules
+**/node_modules
+**/dist
+.git
+tmp
+infra/data
+**/.dev-mail.log
+.env
+**/.env
+infra/production/.env
