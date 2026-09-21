@@ -113,6 +113,8 @@ export interface Api {
   confirmations(): Promise<{ items: Confirmation[] }>
   confirmation(id: string): Promise<Confirmation>
   resolveConfirmation(id: string, action: 'confirm' | 'reject', edits?: Record<string, Partial<RawEvent>>): Promise<void>
+  /** Turn an extracted preview into a confirmation item for the signed-in host. */
+  confirmationFromPreview(previewId: string): Promise<{ id: string }>
 
   keys(): Promise<{ keys: ApiKey[] }>
   createKey(name: string): Promise<ApiKey>
@@ -202,6 +204,7 @@ export const realApi: Api = {
   confirmations: () => call('GET', '/api/confirmations'),
   confirmation: (id) => call('GET', `/api/confirmations/${id}`),
   resolveConfirmation: (id, action, edits) => call('POST', `/api/confirmations/${id}`, { action, edits }),
+  confirmationFromPreview: (previewId) => call('POST', '/api/confirmations/from-preview', { previewId }),
 
   keys: () => call('GET', '/api/me/keys'),
   createKey: (name) => call('POST', '/api/me/keys', { name }),

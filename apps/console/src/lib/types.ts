@@ -78,6 +78,8 @@ export interface Preview {
   defaultVisibility: Visibility
   signals: { private: number; conferenceLinks: number }
   expiresAt: string
+  /** Extracted (flyer, text, page) previews: nothing publishes until a person confirms. */
+  needsConfirmation?: boolean
   /** Present for CSV uploads and Google Sheets. */
   csv?: CsvInfo
 }

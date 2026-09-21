@@ -21,7 +21,7 @@ const NONE = '__none__'
  * One select per event field, listing the file's columns. Changing one re-runs the
  * preview with the new mapping so the cards below stay honest.
  */
-export function CsvMapper({ csv, onChange, busy, fileLost }: { csv: CsvInfo; onChange: (mapping: Record<string, string | null>) => void; busy: boolean; fileLost: boolean }) {
+export function CsvMapper({ csv, onChange, busy, lost, lostNotice = 'The file is no longer in this tab. Go back and upload it again to change the matching.', sourceNoun = 'file' }: { csv: CsvInfo; onChange: (mapping: Record<string, string | null>) => void; busy: boolean; lost: boolean; lostNotice?: string; sourceNoun?: 'file' | 'sheet' }) {
   const mapping = csv.mapping
   const set = (field: CsvField, header: string) => {
     onChange({ ...mapping, [field]: header === NONE ? null : header })
@@ -32,7 +32,7 @@ export function CsvMapper({ csv, onChange, busy, fileLost }: { csv: CsvInfo; onC
         <h2 id="csv-mapper-title">Match the columns</h2>
         <p className="text-sm text-ink-soft">We guessed from the headings. Fix anything that is off; the cards update as you go.</p>
       </div>
-      {fileLost ? <p className="notice notice-warn">The file is no longer in this tab. Go back and upload it again to change the matching.</p> : null}
+      {lost ? <p className="notice notice-warn">{lostNotice}</p> : null}
       <div className="grid gap-3 sm:grid-cols-2">
         {CSV_FIELDS.map((f) => (
           <label key={f} className="field">
@@ -40,8 +40,8 @@ export function CsvMapper({ csv, onChange, busy, fileLost }: { csv: CsvInfo; onC
               {LABELS[f]}
               {f === 'name' || f === 'start' ? <span className="text-warn"> *</span> : null}
             </span>
-            <select className="input" value={mapping[f] ?? NONE} onChange={(e) => set(f, e.target.value)} disabled={busy || fileLost}>
-              <option value={NONE}>not in this file</option>
+            <select className="input" value={mapping[f] ?? NONE} onChange={(e) => set(f, e.target.value)} disabled={busy || lost}>
+              <option value={NONE}>not in this {sourceNoun}</option>
               {csv.headers.map((h) => (
                 <option key={h} value={h}>
                   {h}
@@ -55,7 +55,7 @@ export function CsvMapper({ csv, onChange, busy, fileLost }: { csv: CsvInfo; onC
       {csv.sample.length ? (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <caption className="mb-1 text-left text-ink-soft">First {Math.min(3, csv.sample.length)} rows of your file</caption>
+            <caption className="mb-1 text-left text-ink-soft">First {Math.min(3, csv.sample.length)} rows of your {sourceNoun}</caption>
             <thead>
               <tr>
                 {csv.headers.map((h) => (
@@ -81,7 +81,7 @@ export function CsvMapper({ csv, onChange, busy, fileLost }: { csv: CsvInfo; onC
       ) : null}
       {busy ? (
         <p className="text-sm text-ink-soft" role="status">
-          Re-reading your file…
+          Re-reading your {sourceNoun}…
         </p>
       ) : null}
     </section>

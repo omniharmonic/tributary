@@ -18,6 +18,7 @@ import { clientMetadata, jwks, OAUTH_SCOPE, oauthClient, OAuthUnavailableError }
 import { isPushPreview, loadPreview } from '../../lib/preview.js'
 import { clearCookieHeader, cookieHeader, createSession, destroySession, SESSION_COOKIE } from '../../lib/sessions.js'
 import { connectSource } from '../../lib/sources.js'
+import { queueExtraction } from './confirmations.js'
 import { resolvePdsEndpoint } from '@tributary/publisher'
 import { ApiError, body, clientIp, rateLimit, requireHost, str, type Vars } from '../context.js'
 import type { HostRow } from '../../lib/hosts.js'
@@ -81,8 +82,13 @@ export async function connectPreviewed(h: HostRow, previewId: string | undefined
   const p = await loadPreview(previewId)
   if (!p) return null
   const m = p.match as { type: string; platform?: string }
-  const summary = p.summary as { needsConfirmation?: boolean }
-  if (summary.needsConfirmation) return null
+  const summary = p.summary as { needsConfirmation?: boolean; extracted?: never[]; notes?: string[] }
+  if (summary.needsConfirmation) {
+    // Extracted events wait for the person, never publish on verification (F10).
+    if (!summary.extracted?.length) return null
+    const pid = await queueExtraction(h.id, summary.extracted, summary.notes ?? [], 'console')
+    return `confirm:${pid}`
+  }
   const { source } = await connectSource(h, {
     type: m.type as never,
     platform: m.platform ?? '',
@@ -110,7 +116,7 @@ authRoutes.get('/verify', async (c) => {
         log.warn('could not connect the previewed source after verification', { detail: describeError(err) })
       }
     }
-    const redirect = `/dashboard?welcome=${r.created ? '1' : '0'}${sourceId ? `&source=${sourceId}` : ''}`
+    const redirect = sourceId?.startsWith('confirm:') ? `/confirm/${sourceId.slice('confirm:'.length)}?welcome=${r.created ? '1' : '0'}` : `/dashboard?welcome=${r.created ? '1' : '0'}${sourceId ? `&source=${sourceId}` : ''}`
     if (wantsJson) return c.json({ ok: true, redirect, created: r.created })
     return c.redirect(redirect, 302)
   } catch (err) {
@@ -170,8 +176,6 @@ oauthRoot.get('/oauth/callback', async (c) => {
     let h = await getHostByDid(did)
     if (!h) {
       const pdsUrl = (await resolvePdsEndpoint(did).catch(() => null)) ?? k.PDS_URL
-      const handle = (await fetch(`${k.PDS_URL.replace(/\/$/, '')}/xrpc/com.atproto.identity.resolveHandle?handle=x`).then(() => null).catch(() => null)) ?? null
-      void handle
       const hostId = id('host')
       const [row] = await getDb()
         .insert(host)
@@ -189,6 +193,7 @@ oauthRoot.get('/oauth/callback', async (c) => {
     c.header('Set-Cookie', cookieHeader(cookie, expiresAt))
     let sourceId: string | null = null
     if (st.previewId) sourceId = await connectPreviewed(h, st.previewId, st.visibility as Visibility).catch(() => null)
+    if (sourceId?.startsWith('confirm:')) return c.redirect(`/confirm/${sourceId.slice('confirm:'.length)}?welcome=1`, 302)
     return c.redirect(`/dashboard?welcome=1${sourceId ? `&source=${sourceId}` : ''}`, 302)
   } catch (err) {
     log.warn('oauth callback failed', { detail: describeError(err) })

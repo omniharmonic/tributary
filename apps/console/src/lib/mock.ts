@@ -5,7 +5,7 @@
 import { DateTime } from 'luxon'
 import type { Api } from './api'
 import { ApiError } from './errors'
-import type { ApiKey, Confirmation, CsvInfo, DetectMatch, EventCard, LedgerEvent, Me, OrgRole, Preview, PublicEvent, PublicHost, Rule, Source, SourceDetail, Visibility } from './types'
+import type { ApiKey, Confirmation, CsvInfo, DetectMatch, EventCard, LedgerEvent, ManagedHost, Me, OrgRole, Preview, PublicEvent, PublicHost, Rule, Source, SourceDetail, Visibility } from './types'
 
 const TZ = 'America/Denver'
 const now = DateTime.now().setZone(TZ)
@@ -120,6 +120,10 @@ let keys: ApiKey[] = [{ id: 'k1', name: 'Zapier', createdAt: iso(now.minus({ day
 let inbound = { email: 'add+7f3k2q@in.freeskool.directory', webhookUrl: 'https://tributary.freeskool.directory/api/webhook/7f3k2q', webhookSecret: 'whsec_9f1d0c2a7b3e4d5f6a7b8c9d' }
 const previews = new Map<string, Preview>()
 let roles: OrgRole[] = [{ did: 'did:plc:editorexampleaaaaaaaaaa', role: 'editor' }]
+const managed: ManagedHost[] = [
+  { id: 'h-dairy', handle: hosts.dairy!.handle, displayName: hosts.dairy!.displayName, role: 'editor' },
+  { id: 'h-library', handle: hosts.library!.handle, displayName: hosts.library!.displayName, role: 'viewer' },
+]
 const delay = (ms = 250) => new Promise((r) => setTimeout(r, ms))
 const requireMe = () => {
   if (!me) throw new ApiError('Unauthorized', 'Sign in to continue.', 401)
@@ -137,6 +141,7 @@ function detectFor(input: string, file?: File): DetectMatch[] {
   if (/meetup\.com/i.test(s)) return [{ type: 'meetup', platform: 'meetup', confidence: 0.97, label: 'Meetup group', hint: { url: s } }]
   if (/calendar\.google\.com|\.ics(\?|$)|^webcal:/i.test(s)) return [{ type: 'gcal-public', platform: 'google', confidence: 0.95, label: 'Google Calendar (public)', hint: { url: s } }, { type: 'ics', platform: 'ics', confidence: 0.7, label: 'Calendar feed (.ics)', hint: { url: s } }]
   if (/eventbrite\.com/i.test(s)) return [{ type: 'jsonld-page', platform: 'eventbrite', confidence: 0.9, label: 'Eventbrite page', hint: { url: s } }]
+  if (/docs\.google\.com\/spreadsheets/i.test(s)) return [{ type: 'sheet', platform: 'sheet', confidence: 0.95, label: 'Google Sheet', hint: { sheetId: 'mock-sheet', gid: '0' }, note: 'The sheet must be shared with "anyone with the link". We will ask you to match the columns.' }]
   if (/facebook\.com|partiful\.com/i.test(s)) return [{ type: 'extract', platform: 'unsupported', confidence: 0.3, label: 'Not readable from here', hint: { url: s }, note: 'Facebook and Partiful pages cannot be read without logging in. Forward the invite email, drop a screenshot, or describe the event instead.' }]
   if (/^https?:\/\//i.test(s)) return [{ type: 'tribe', platform: 'wordpress', confidence: 0.8, label: 'WordPress Events Calendar', hint: { url: s } }, { type: 'jsonld-page', platform: 'web', confidence: 0.5, label: 'Event page', hint: { url: s } }]
   return [{ type: 'extract', platform: 'text', confidence: 0.85, label: 'Described event', hint: { text: s }, note: 'We will turn this into an event and ask you to confirm before it is published.' }]
@@ -158,7 +163,7 @@ function csvInfoFor(mapping?: Record<string, string | null>): CsvInfo {
 function previewFor(match: DetectMatch): Preview {
   const id = `pv_${Math.random().toString(36).slice(2, 9)}`
   const structured = match.type !== 'extract'
-  const csv = match.type === 'upload' && match.hint.kind === 'csv' ? csvInfoFor(match.hint.mapping as Record<string, string | null> | undefined) : undefined
+  const csv = (match.type === 'upload' && match.hint.kind === 'csv') || match.type === 'sheet' ? csvInfoFor(match.hint.mapping as Record<string, string | null> | undefined) : undefined
   const cards = structured
     ? publicEvents.slice(0, 6).map((e, i) => ({ ...e.card, key: `p${i}`, platform: match.platform, visibility: (i === 4 ? 'held' : 'public') as Visibility }))
     : [{ ...card({ key: 'x', name: 'Repair café, first Saturdays', start: at(11, 10), end: at(11, 13), place: 'the library', platform: 'extract', sourceUrl: '' }), needsConfirmation: true, confidence: { name: 0.96, start: 0.7, place: 0.55 } }]
@@ -172,6 +177,7 @@ function previewFor(match: DetectMatch): Preview {
     defaultVisibility: 'public',
     signals: { private: structured ? 1 : 0, conferenceLinks: structured ? 2 : 0 },
     expiresAt: iso(now.plus({ hours: 1 })),
+    needsConfirmation: !structured,
     ...(csv ? { csv, count: csv.mapping.name ? 3 : 0, upcoming: csv.mapping.name ? 3 : 0, notes: csv.mapping.name ? ['Check the column matching below; the cards update as you change it.'] : ['Tell us which column holds the event name.'] } : {}),
   }
   previews.set(id, p)
@@ -284,6 +290,16 @@ export const mockApi: Api = {
     await delay()
     return { sources: sources.map(({ rules: _r, syncRuns: _s, ...s }) => s) }
   },
+  async connectEventbrite(token) {
+    requireMe()
+    await delay(800)
+    if (!/^[A-Z0-9]{16,}$/i.test(token)) throw new ApiError('InvalidInput', 'That does not look like an Eventbrite private token. It is a 20-character code on the API keys page.', 400)
+    const existing = sources.find((x) => x.type === 'eventbrite')
+    if (existing) return { source: existing, created: false }
+    const s: SourceDetail = { id: `s${sources.length + 1}`, type: 'eventbrite', platform: 'eventbrite', label: 'Eventbrite: Front Range Seed Library', url: 'https://www.eventbrite.com/o/front-range-seed-library', status: 'active', defaultVisibility: 'public', lastSyncAt: null, lastSuccessAt: null, nextRunAt: iso(now.plus({ minutes: 1 })), consecutiveFailures: 0, lastError: null, counts: { live: 0, cancelled: 0, held: 0 }, claimed: true, createdAt: iso(now), tz: TZ, interval: 60, rules: [], syncRuns: [] }
+    sources.push(s)
+    return { source: s, created: true }
+  },
   async addSource(body) {
     requireMe()
     await delay(700)
@@ -378,6 +394,15 @@ export const mockApi: Api = {
     const i = confirmations.findIndex((x) => x.id === id)
     if (i >= 0) confirmations.splice(i, 1)
   },
+  async confirmationFromPreview(previewId) {
+    requireMe()
+    await delay(400)
+    const p = previews.get(previewId)
+    if (!p) throw new ApiError('NotFound', 'That preview has expired. Paste the link again.', 404)
+    const c: Confirmation = { id: `c${confirmations.length + 3}`, kind: 'extracted', createdAt: iso(DateTime.now()), expiresAt: iso(now.plus({ days: 14 })), channel: 'console', sourceId: null, cards: p.cards, proposed: {}, evidence: {} }
+    confirmations.unshift(c)
+    return { id: c.id }
+  },
   async keys() {
     requireMe()
     return { keys }
@@ -467,6 +492,11 @@ export const mockApi: Api = {
     requireMe()
     await delay(200)
     roles = roles.filter((r) => r.did !== did)
+  },
+  async managed() {
+    requireMe()
+    await delay(120)
+    return { hosts: managed }
   },
 }
 

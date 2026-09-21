@@ -5,6 +5,7 @@ import { api } from '../lib/api'
 import { plainError } from '../lib/errors'
 import type { DetectMatch } from '../lib/types'
 import { keepPendingFile } from '../lib/pending-file'
+import { keepPendingMatch } from '../lib/pending-match'
 import { platformLabel } from '../components/Badges'
 import { OneBox, type OneBoxSubmit } from '../components/OneBox'
 import { Footer, Page } from '../components/Shell'
@@ -25,8 +26,9 @@ export function AddRoute() {
   const preview = useMutation({
     mutationFn: (v: { match: DetectMatch; file?: File }) => api.preview(v.match, v.file),
     onSuccess: (p, v) => {
-      // The preview page needs the file again to re-run a CSV column change.
+      // The preview page needs the file (CSV) or the match (Google Sheet) again to re-run a column change.
       keepPendingFile(p.previewId, v.file)
+      keepPendingMatch(p.previewId, v.match)
       void navigate({ to: '/preview/$previewId', params: { previewId: p.previewId } })
     },
   })

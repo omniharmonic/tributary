@@ -4,7 +4,7 @@ import { useNavigate } from '@tanstack/react-router'
 import { api } from '../lib/api'
 import { plainError } from '../lib/errors'
 import { shortDateTime } from '../lib/dates'
-import { useMe } from '../lib/queries'
+import { useActing, useMe } from '../lib/queries'
 import type { ApiKey, OrgRoleName } from '../lib/types'
 import { PageState } from '../components/PageState'
 import { Page } from '../components/Shell'
@@ -12,6 +12,8 @@ import { Sheet } from '../components/Sheet'
 
 export function SettingsRoute() {
   const { me } = useMe()
+  const { acting, role, readOnly } = useActing()
+  const ownerOnly = role === 'owner'
   const qc = useQueryClient()
   const navigate = useNavigate()
   const take = useMutation({ mutationFn: () => api.takeControl() })
@@ -20,13 +22,13 @@ export function SettingsRoute() {
   const [deleting, setDeleting] = useState(false)
   const [typed, setTyped] = useState('')
 
-  const keysQ = useQuery({ queryKey: ['keys'], queryFn: () => api.keys() })
+  const keysQ = useQuery({ queryKey: ['keys'], queryFn: () => api.keys(), enabled: ownerOnly })
   const [keyName, setKeyName] = useState('')
   const [freshKey, setFreshKey] = useState<ApiKey | null>(null)
   const createKey = useMutation({ mutationFn: () => api.createKey(keyName.trim()), onSuccess: (k) => { setFreshKey(k); setKeyName(''); void qc.invalidateQueries({ queryKey: ['keys'] }) } })
   const deleteKey = useMutation({ mutationFn: (id: string) => api.deleteKey(id), onSuccess: () => void qc.invalidateQueries({ queryKey: ['keys'] }) })
   const inboundQ = useQuery({ queryKey: ['inbound'], queryFn: () => api.inbound() })
-  const rolesQ = useQuery({ queryKey: ['roles'], queryFn: () => api.roles() })
+  const rolesQ = useQuery({ queryKey: ['roles'], queryFn: () => api.roles(), enabled: ownerOnly })
   const [roleHandle, setRoleHandle] = useState('')
   const [roleName, setRoleName] = useState<OrgRoleName>('editor')
   const addRole = useMutation({ mutationFn: () => api.addRole({ handle: roleHandle.trim().replace(/^@/, ''), role: roleName }), onSuccess: () => { setRoleHandle(''); void qc.invalidateQueries({ queryKey: ['roles'] }) } })
@@ -37,9 +39,12 @@ export function SettingsRoute() {
   const custodial = me.host.door === 'custodial'
 
   return (
-    <Page title="Settings" lede={`Signed in as @${me.host.handle}. ${custodial ? 'This account is real and yours; two buttons below always work.' : 'You signed in with your own account; your events live there.'}`}>
+    <Page
+      title="Settings"
+      lede={acting ? `Managing ${acting.displayName} as ${role}. Ownership, API keys and roles belong to the owner.` : `Signed in as @${me.host.handle}. ${custodial ? 'This account is real and yours; two buttons below always work.' : 'You signed in with your own account; your events live there.'}`}
+    >
       <div className="grid gap-6">
-        {custodial ? (
+        {custodial && ownerOnly ? (
           <section className="panel grid gap-3 p-4">
             <h2>Your account</h2>
             <p className="text-sm text-ink-soft">We hold only a limited key that can publish events for you. We never had your password.</p>
@@ -91,12 +96,13 @@ export function SettingsRoute() {
             ) : null}
           </PageState>
           <div>
-            <button type="button" className="btn btn-sm" onClick={() => rotate.mutate()} disabled={rotate.isPending}>
+            <button type="button" className="btn btn-sm" onClick={() => rotate.mutate()} disabled={rotate.isPending || readOnly}>
               Rotate address and secret
             </button>
           </div>
         </section>
 
+        {ownerOnly ? (
         <section className="panel grid gap-3 p-4">
           <h2>API keys</h2>
           <p className="text-sm text-ink-soft">For your own scripts and agents. Each key can only publish as you.</p>
@@ -133,7 +139,9 @@ export function SettingsRoute() {
             </ul>
           </PageState>
         </section>
+        ) : null}
 
+        {ownerOnly ? (
         <section className="panel grid gap-3 p-4">
           <h2>People who can manage this account</h2>
           <p className="text-sm text-ink-soft">Owners can do everything, editors can change sources and events, viewers can only look. The network has no way to delegate an account yet, so this list lives here, in the app, and every change to who sees what is written to the audit log.</p>
@@ -184,16 +192,19 @@ export function SettingsRoute() {
           {addRole.error ? <p className="notice notice-warn">{plainError(addRole.error)}</p> : null}
           {removeRole.error ? <p className="notice notice-warn">{plainError(removeRole.error)}</p> : null}
         </section>
+        ) : null}
 
         <section className="panel grid gap-3 p-4">
-          <h2>Your data</h2>
+          <h2>{acting ? 'Their data' : 'Your data'}</h2>
           <div className="flex flex-wrap gap-2">
             <a className="btn" href={api.exportUrl()} download>
               Export everything (JSON)
             </a>
-            <button type="button" className="btn btn-danger" onClick={() => setDeleting(true)}>
-              Delete everything
-            </button>
+            {ownerOnly ? (
+              <button type="button" className="btn btn-danger" onClick={() => setDeleting(true)}>
+                Delete everything
+              </button>
+            ) : null}
           </div>
         </section>
       </div>

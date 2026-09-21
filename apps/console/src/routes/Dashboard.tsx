@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { api } from '../lib/api'
 import { SOURCE_ERROR_TEXT, plainError } from '../lib/errors'
 import { relative } from '../lib/dates'
-import { keys } from '../lib/queries'
+import { keys, useActing } from '../lib/queries'
 import type { Source } from '../lib/types'
 import { VISIBILITY_LABEL, platformLabel } from '../components/Badges'
 import { Empty, PageState } from '../components/PageState'
@@ -22,15 +22,26 @@ export function sourceStatusText(s: Source): { text: string; tone: 'ok' | 'warn'
 export function DashboardRoute() {
   const search = useSearch({ strict: false }) as { welcome?: string }
   const qc = useQueryClient()
+  const { readOnly, acting } = useActing()
   const q = useQuery({ queryKey: keys.sources, queryFn: () => api.sources() })
   const [removing, setRemoving] = useState<Source | null>(null)
+  const [eventbrite, setEventbrite] = useState(false)
+  const [token, setToken] = useState('')
   const invalidate = () => void qc.invalidateQueries({ queryKey: keys.sources })
+  const connectEb = useMutation({
+    mutationFn: () => api.connectEventbrite(token.trim()),
+    onSuccess: () => {
+      setEventbrite(false)
+      setToken('')
+      invalidate()
+    },
+  })
   const sync = useMutation({ mutationFn: (id: string) => api.syncSource(id), onSuccess: invalidate })
   const pause = useMutation({ mutationFn: (v: { id: string; paused: boolean }) => api.patchSource(v.id, { paused: v.paused }), onSuccess: invalidate })
   const remove = useMutation({ mutationFn: (id: string) => api.removeSource(id), onSuccess: () => { setRemoving(null); invalidate() } })
 
   return (
-    <Page title="Your sources" lede="Each one is checked on its own schedule. Edit events where they live; changes show up here by themselves.">
+    <Page title={acting ? `${acting.displayName}'s sources` : 'Your sources'} lede={readOnly ? 'You can look but not change anything here.' : 'Each one is checked on its own schedule. Edit events where they live; changes show up here by themselves.'}>
       {search.welcome ? (
         <p className="notice mb-5" role="status">
           You&rsquo;re in. Your first events are publishing now. This page is where you come back to see how each source is doing.
@@ -76,16 +87,16 @@ export function DashboardRoute() {
                   {st.tone === 'warn' && s.consecutiveFailures > 0 ? ` (${s.consecutiveFailures} tries)` : ''}
                 </p>
                 <div className="flex flex-wrap gap-2">
-                  <button type="button" className="btn btn-sm" onClick={() => sync.mutate(s.id)} disabled={sync.isPending}>
+                  <button type="button" className="btn btn-sm" onClick={() => sync.mutate(s.id)} disabled={sync.isPending || readOnly}>
                     Sync now
                   </button>
-                  <button type="button" className="btn btn-sm" onClick={() => pause.mutate({ id: s.id, paused: s.status !== 'paused' })} disabled={pause.isPending}>
+                  <button type="button" className="btn btn-sm" onClick={() => pause.mutate({ id: s.id, paused: s.status !== 'paused' })} disabled={pause.isPending || readOnly}>
                     {s.status === 'paused' ? 'Resume' : 'Pause'}
                   </button>
                   <Link to="/dashboard/sources/$id" params={{ id: s.id }} className="btn btn-sm">
                     Rules and history
                   </Link>
-                  <button type="button" className="btn btn-sm btn-danger" onClick={() => setRemoving(s)}>
+                  <button type="button" className="btn btn-sm btn-danger" onClick={() => setRemoving(s)} disabled={readOnly}>
                     Remove
                   </button>
                 </div>
@@ -94,12 +105,52 @@ export function DashboardRoute() {
           })}
         </ul>
         {sync.error || pause.error ? <p className="notice notice-warn mt-3">{plainError(sync.error ?? pause.error)}</p> : null}
-        <div className="mt-6">
-          <Link to="/add" className="btn">
+        <div className="mt-6 flex flex-wrap gap-2">
+          <Link to="/add" className={`btn ${readOnly ? 'pointer-events-none opacity-50' : ''}`} aria-disabled={readOnly || undefined}>
             Add another source
           </Link>
+          <button type="button" className="btn" onClick={() => setEventbrite(true)} disabled={readOnly}>
+            Connect Eventbrite
+          </button>
         </div>
       </PageState>
+      <Sheet open={eventbrite} onClose={() => setEventbrite(false)} title="Connect Eventbrite">
+        <p className="text-sm text-ink-soft">
+          Single Eventbrite pages already work by pasting the link. Connecting your account keeps <em>all</em> your organisation&rsquo;s events in sync, images included.
+        </p>
+        <p className="text-sm">
+          Paste the <strong>Private token</strong> from{' '}
+          <a href="https://www.eventbrite.com/platform/api-keys" target="_blank" rel="noreferrer noopener">
+            eventbrite.com/platform/api-keys
+          </a>
+          . We use it only to read your organisation&rsquo;s events, store it encrypted, and never show it again.
+        </p>
+        <form
+          className="grid gap-3"
+          onSubmit={(e) => {
+            e.preventDefault()
+            if (token.trim()) connectEb.mutate()
+          }}
+        >
+          <label className="field">
+            <span>Private token</span>
+            <input className="input" value={token} onChange={(e) => setToken(e.target.value)} autoComplete="off" autoCapitalize="off" autoCorrect="off" spellCheck={false} />
+          </label>
+          {connectEb.error ? (
+            <p className="notice notice-warn" role="alert">
+              {plainError(connectEb.error)}
+            </p>
+          ) : null}
+          <div className="flex gap-2">
+            <button type="submit" className="btn btn-primary" disabled={connectEb.isPending || !token.trim()}>
+              {connectEb.isPending ? 'Connecting…' : 'Connect'}
+            </button>
+            <button type="button" className="btn" onClick={() => setEventbrite(false)}>
+              Cancel
+            </button>
+          </div>
+        </form>
+      </Sheet>
       <Sheet open={!!removing} onClose={() => setRemoving(null)} title="Remove this source?">
         {removing ? (
           <>

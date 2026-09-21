@@ -10,6 +10,7 @@ import { recordAudit } from '../../lib/audit.js'
 import { expandConfirmed, type ExtractedEvent } from '../../lib/extract.js'
 import { enqueueSync } from '../../jobs/index.js'
 import { pushRawEvents, pushSourceFor } from '../../lib/sources.js'
+import { loadPreview } from '../../lib/preview.js'
 import { ApiError, body, notFound, requireHost, str, type Vars } from '../context.js'
 
 export const confirmationRoutes = new Hono<{ Variables: Vars }>()
@@ -41,6 +42,18 @@ confirmationRoutes.get('/', async (c) => {
   const h = requireHost(c)
   const rows = await getDb().select().from(pendingConfirmation).where(and(eq(pendingConfirmation.hostId, h.id), isNull(pendingConfirmation.resolvedAt))).orderBy(desc(pendingConfirmation.createdAt)).limit(100)
   return c.json({ items: rows.map(view) })
+})
+
+/** An extract preview (flyer, text, page) becomes a confirmation item for the signed-in host. */
+confirmationRoutes.post('/from-preview', async (c) => {
+  const h = requireHost(c)
+  const b = await body(c)
+  const p = await loadPreview(str(b.previewId, 'previewId'))
+  if (!p) throw new ApiError(404, 'NotFound', 'That preview has expired. Try again.')
+  const summary = p.summary as { needsConfirmation?: boolean; extracted?: ExtractedEvent[]; notes?: string[] }
+  if (!summary.needsConfirmation || !summary.extracted?.length) throw new ApiError(400, 'InvalidInput', 'This preview does not need confirmation; connect it as a source instead.')
+  const pid = await queueExtraction(h.id, summary.extracted, summary.notes ?? [], 'console')
+  return c.json({ id: pid }, 201)
 })
 
 confirmationRoutes.get('/:id', async (c) => {

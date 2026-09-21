@@ -129,6 +129,9 @@ Force a rewrite (e.g. after a profile bump). `202`.
 ### `GET /api/confirmations`
 `{ "items": [ { "id", "kind": "extracted" | "widen" | "claim", "createdAt", "expiresAt", "channel": "console" | "email" | "telegram", "sourceId", "cards": [EventCard], "proposed": { … }, "evidence": { "field": "spanText" } } ] }`
 
+### `POST /api/confirmations/from-preview`
+`{ previewId }` for an extract preview (flyer, text, unstructured page) → `201 { id }`; the console then opens `/confirm/:id`. On the identity step, a verified signup whose preview needs confirmation is redirected to `/confirm/:id` instead of the dashboard.
+
 ### `POST /api/confirmations/:id`
 `{ "action": "confirm" | "reject", "edits"?: { "<cardKey>": Partial<RawEvent> } }`. Confirm publishes; reject discards. The email link form is `GET /confirm/:id?token=…` and lands on the console with the item preloaded.
 
