@@ -1,0 +1,29 @@
+{
+  "meta": {
+    "title": "Dairy Arts Center",
+    "tz": "America/Denver",
+    "prodId": "-//Google Inc//Google Calendar 70.9054//EN"
+  },
+  "complete": true,
+  "dropped": 0,
+  "window": {
+    "from": "2026-07-01T01:00:00.000Z",
+    "to": "2027-03-01T01:00:00.000Z"
+  },
+  "events": [
+    {
+      "externalId": "1a2b3c@google.com",
+      "name": "Gallery Opening: Fall Show",
+      "description": "Opening night. Tickets: https://thedairy.example.org/tickets/opening",
+      "descriptionIsHtml": false,
+      "start": "2026-10-02T01:00:00Z",
+      "end": "2026-10-02T03:00:00Z",
+      "tz": "America/Denver",
+      "location": "The Dairy Arts Center, 2590 Walnut St, Boulder, CO 80302",
+      "url": "https://thedairy.example.org/tickets/opening",
+      "sourcePrivacy": "public",
+      "sequence": 0,
+      "lastModified": "2026-09-01T00:00:00.000Z"
+    }
+  ]
+}

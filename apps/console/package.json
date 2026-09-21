@@ -1,0 +1,5 @@
+{ "name": "@tributary/console", "version": "0.1.0", "private": true, "license": "AGPL-3.0-or-later", "type": "module",
+  "description": "Tributary console: the one-box, preview, identity, host dashboard, confirmation queue, and the public regional directory view.",
+  "scripts": { "dev": "vite", "build": "vite build", "preview": "vite preview", "typecheck": "tsc -p tsconfig.json --noEmit", "test": "vitest run" },
+  "dependencies": { "@tanstack/react-query": "^5.102.8", "@tanstack/react-router": "^1.170.35", "@tributary/event-model": "workspace:*", "luxon": "^3.7.2", "react": "^19.3.0", "react-dom": "^19.3.0" },
+  "devDependencies": { "@tailwindcss/vite": "^4.3.3", "@testing-library/jest-dom": "^7.0.1", "@testing-library/react": "^16.3.3", "@types/luxon": "^3.7.1", "@types/node": "^22.20.2", "@types/react": "^19.3.0", "@types/react-dom": "^19.3.0", "@vitejs/plugin-react": "^5.2.0", "jsdom": "^30.0.1", "tailwindcss": "^4.3.3", "typescript": "^5.9.2", "vite": "^7.3.6", "vitest": "^5.0.0" } }

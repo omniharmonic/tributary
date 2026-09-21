@@ -1,0 +1,30 @@
+{
+  "meta": {
+    "title": "Boulder Farmers Market",
+    "tz": "America/Denver",
+    "prodId": "-//Tockify//Tockify//EN"
+  },
+  "complete": true,
+  "dropped": 0,
+  "window": {
+    "from": "2026-10-04T14:00:00.000Z",
+    "to": "2026-10-04T14:00:00.000Z"
+  },
+  "events": [
+    {
+      "externalId": "tkf-5f3e2a1b-market@tockify.com",
+      "name": "Saturday Market",
+      "description": "Fresh produce from 40 local farms.",
+      "descriptionIsHtml": false,
+      "start": "2026-10-04T08:00:00",
+      "end": "2026-10-04T14:00:00",
+      "tz": "America/Denver",
+      "location": "13th Street between Canyon and Arapahoe, Boulder, CO",
+      "url": "https://tockify.com/boulderfarmers/detail/42/1759586400000",
+      "imageUrl": "https://cdn.tockify.com/images/market-hero.jpg",
+      "tags": [
+        "Market"
+      ]
+    }
+  ]
+}

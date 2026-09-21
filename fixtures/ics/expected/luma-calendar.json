@@ -1,0 +1,42 @@
+{
+  "meta": {
+    "title": "Boulder Builders",
+    "prodId": "-//Luma//Boulder Builders//EN"
+  },
+  "complete": true,
+  "dropped": 0,
+  "window": {
+    "from": "2026-10-08T00:00:00.000Z",
+    "to": "2026-10-22T00:00:00.000Z"
+  },
+  "events": [
+    {
+      "externalId": "evt-WubTRLpINkKUFc7@events.lu.ma",
+      "name": "Builders Night: Maps and Places",
+      "description": "Get up-to-date information at: https://luma.com/abcd1234\n\nAddress:\nGalvanize Boulder\nBoulder, CO\nUnited States\n\nHosted by Boulder Builders",
+      "descriptionIsHtml": false,
+      "start": "2026-10-08T00:00:00Z",
+      "end": "2026-10-08T02:00:00Z",
+      "location": "Galvanize Boulder, 1023 Walnut St, Boulder, CO 80302, USA",
+      "geo": {
+        "lat": 40.0176,
+        "lon": -105.2811
+      },
+      "url": "https://luma.com/abcd1234",
+      "organizerName": "Boulder Builders",
+      "sequence": 212171520
+    },
+    {
+      "externalId": "evt-9zKpQ2mL7nRt4Xy@events.lu.ma",
+      "name": "Builders Night: Online Edition",
+      "description": "Join at https://zoom.us/j/123456789\n\nGet up-to-date information at: https://lu.ma/efgh5678\n\nHosted by Boulder Builders",
+      "descriptionIsHtml": false,
+      "start": "2026-10-22T00:00:00Z",
+      "end": "2026-10-22T02:00:00Z",
+      "location": "Zoom",
+      "url": "https://lu.ma/efgh5678",
+      "organizerName": "Boulder Builders",
+      "sequence": 212171521
+    }
+  ]
+}

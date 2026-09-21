@@ -1,0 +1,28 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//The Events Calendar//6.5//EN
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+X-WR-CALNAME:eTown Hall Events
+X-WR-CALDESC:Events for eTown Hall
+X-WR-TIMEZONE:America/Denver
+X-ORIGINAL-URL:https://etown.example.org
+BEGIN:VEVENT
+DTSTART;TZID=America/Denver:20261009T190000
+DTEND;TZID=America/Denver:20261009T220000
+DTSTAMP:20260921T120000Z
+CREATED:20260901T000000Z
+LAST-MODIFIED:20260910T000000Z
+UID:10042-1760040000-1760050800@etown.example.org
+SUMMARY:An Evening with the Bluegrass Collective
+DESCRIPTION:Doors 6pm. Tickets $25 advance.\nhttps://etown.example.org/event/bluegrass-collective/
+X-ALT-DESC;FMTTYPE=text/html:<p>Doors <strong>6pm</strong>. Tickets $25 advance.</p><p><a href="https://etown.example.org/tickets/bluegrass">Buy tickets</a></p>
+URL:https://etown.example.org/event/bluegrass-collective/
+LOCATION:eTown Hall\, 1535 Spruce St\, Boulder\, CO\, 80302\, United States
+CATEGORIES:Music,Live Performance
+ATTACH;FMTTYPE=image/jpeg:https://etown.example.org/wp-content/uploads/2026/09/bluegrass.jpg
+ORGANIZER;CN="eTown":MAILTO:info@etown.example.org
+GEO:40.0189;-105.2795
+X-APPLE-STRUCTURED-LOCATION;VALUE=URI;X-ADDRESS=1535 Spruce St Boulder CO 80302;X-APPLE-RADIUS=500;X-TITLE=eTown Hall:geo:40.0189,-105.2795
+END:VEVENT
+END:VCALENDAR

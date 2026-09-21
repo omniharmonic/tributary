@@ -1,0 +1,4 @@
+{ "name": "@tributary/detect", "version": "0.1.0", "license": "AGPL-3.0-or-later", "type": "module", "main": "./src/index.ts", "types": "./src/index.ts", "exports": { ".": "./src/index.ts" },
+  "scripts": { "build": "tsc -p tsconfig.json", "typecheck": "tsc -p tsconfig.json --noEmit", "test": "vitest run" },
+  "dependencies": { "@tributary/connectors": "workspace:*", "@tributary/event-model": "workspace:*", "@tributary/ssrf-fetch": "workspace:*", "linkedom": "^0.18.13" },
+  "devDependencies": { "@types/node": "^22.15.0", "typescript": "^5.9.2", "vitest": "^3.2.4" } }

@@ -1,0 +1,33 @@
+{
+  "meta": {
+    "title": "City of Boulder Public Meetings",
+    "tz": "America/Denver",
+    "prodId": "Microsoft Exchange Server 2010"
+  },
+  "complete": true,
+  "dropped": 0,
+  "window": {
+    "from": "2026-10-07T00:00:00.000Z",
+    "to": "2026-10-13T23:00:00.000Z"
+  },
+  "events": [
+    {
+      "externalId": "040000008200E00074C5B7101A82E00800000000A0B1C2D3",
+      "name": "City Council Study Session",
+      "start": "2026-10-06T18:00:00",
+      "end": "2026-10-06T21:00:00",
+      "tz": "America/Denver",
+      "location": "Boulder Municipal Building, 1777 Broadway, Boulder",
+      "sourcePrivacy": "public",
+      "sequence": 0
+    },
+    {
+      "externalId": "040000008200E00074C5B7101A82E00800000000EEEEFFFF",
+      "name": "Planning Board (Eastern office joins)",
+      "start": "2026-10-13T19:00:00",
+      "end": "2026-10-13T21:00:00",
+      "tz": "America/New_York",
+      "sequence": 1
+    }
+  ]
+}

@@ -1,0 +1,50 @@
+{
+  "meta": {
+    "title": "Board and Public",
+    "tz": "America/Denver",
+    "prodId": "-//Google Inc//Google Calendar 70.9054//EN"
+  },
+  "complete": true,
+  "dropped": 0,
+  "window": {
+    "from": "2026-10-07T00:00:00.000Z",
+    "to": "2026-10-10T00:00:00.000Z"
+  },
+  "events": [
+    {
+      "externalId": "public-1@google.com",
+      "name": "Public Talk",
+      "start": "2026-10-07T00:00:00Z",
+      "end": "2026-10-07T01:30:00Z",
+      "tz": "America/Denver",
+      "organizerName": "Front Range Seed Library",
+      "sourcePrivacy": "public"
+    },
+    {
+      "externalId": "private-1@google.com",
+      "name": "Board Meeting",
+      "description": "Home of the chair. Zoom https://zoom.us/j/99887766",
+      "descriptionIsHtml": false,
+      "start": "2026-10-08T00:00:00Z",
+      "end": "2026-10-08T01:30:00Z",
+      "tz": "America/Denver",
+      "location": "123 Elm St, Boulder, CO",
+      "sourcePrivacy": "private"
+    },
+    {
+      "externalId": "confidential-1@google.com",
+      "name": "Personnel Review",
+      "start": "2026-10-09T00:00:00Z",
+      "end": "2026-10-09T01:30:00Z",
+      "tz": "America/Denver",
+      "sourcePrivacy": "confidential"
+    },
+    {
+      "externalId": "unmarked-1@google.com",
+      "name": "Volunteer Orientation",
+      "start": "2026-10-10T00:00:00Z",
+      "end": "2026-10-10T01:30:00Z",
+      "tz": "America/Denver"
+    }
+  ]
+}

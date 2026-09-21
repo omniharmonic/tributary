@@ -1,0 +1,248 @@
+/**
+ * Types for the API contract in docs/api.md. Only types are imported from the event
+ * model (its runtime pulls Node-only libraries).
+ */
+import type { Audience, EventCard, GatedField, RawEvent, SourceType, Visibility, VisibilitySource } from '@tributary/event-model'
+
+export type { Audience, EventCard, GatedField, RawEvent, SourceType, Visibility, VisibilitySource }
+
+export type ErrorCode =
+  | 'InvalidInput'
+  | 'NotFound'
+  | 'Unauthorized'
+  | 'Forbidden'
+  | 'RateLimited'
+  | 'SourceUnreachable'
+  | 'SourceUnsupported'
+  | 'NeedsConfirmation'
+  | 'Conflict'
+  | 'PdsRejected'
+  | 'Internal'
+  | 'Network'
+
+export interface ApiErrorBody {
+  error: ErrorCode | string
+  message: string
+}
+
+export interface PublicConfig {
+  region: { slug: string; name: string; tz: string }
+  handleDomain: string
+  brand: string
+  adapterName: string
+}
+
+export interface DetectMatch {
+  type: SourceType
+  platform: string
+  confidence: number
+  label: string
+  hint: Record<string, unknown>
+  note?: string | null
+}
+
+export interface DetectResponse {
+  matches: DetectMatch[]
+  preview: null
+}
+
+export type PreviewCard = EventCard & {
+  confidence?: Record<string, number>
+  needsConfirmation?: boolean
+}
+
+export interface Preview {
+  previewId: string
+  source: {
+    type: SourceType
+    platform: string
+    label: string
+    fingerprint: string
+    tz: string
+    alreadyConnected: boolean
+  }
+  count: number
+  upcoming: number
+  cards: PreviewCard[]
+  notes: string[]
+  defaultVisibility: Visibility
+  signals: { private: number; conferenceLinks: number }
+  expiresAt: string
+}
+
+export type ProvenanceLevel = 'email' | 'source' | 'domain' | 'listed'
+
+export interface Host {
+  id: string
+  did: string
+  handle: string
+  displayName: string
+  email: string
+  door: 'custodial' | 'oauth'
+  provenanceLevel: ProvenanceLevel
+  region: string
+  logoUrl?: string | null
+  createdAt: string
+}
+
+export interface Me {
+  host: Host
+  capabilities: { canSetPassword: boolean; canMigrate: boolean }
+}
+
+export interface SignupResponse {
+  did: string | null
+  handle: string
+  status: 'check-your-email'
+  verifyUrl?: string
+}
+
+export interface HandleCheck {
+  ok: boolean
+  reason?: 'invalid' | 'reserved' | 'taken'
+  suggestions?: string[]
+}
+
+export type SourceStatus = 'active' | 'paused' | 'failing' | 'held'
+
+export interface Source {
+  id: string
+  type: SourceType
+  platform: string
+  label: string
+  url?: string
+  status: SourceStatus
+  defaultVisibility: Visibility
+  audience?: Audience | null
+  lastSyncAt?: string | null
+  lastSuccessAt?: string | null
+  nextRunAt?: string | null
+  consecutiveFailures: number
+  lastError: { code: string; message: string } | null
+  counts: { live: number; cancelled: number; held: number }
+  claimed: boolean
+  createdAt: string
+  tz?: string
+  interval?: number
+}
+
+export interface SyncRun {
+  startedAt: string
+  finishedAt?: string | null
+  ok: boolean
+  fetched: number
+  published: number
+  updated: number
+  cancelled: number
+  removed: number
+  held: number
+  error?: { code: string; message: string } | null
+}
+
+export interface Rule {
+  match: {
+    titleContains?: string
+    calendar?: string
+    category?: string
+    locationType?: 'home' | 'venue' | 'online'
+    flag?: 'private' | 'membersOnly'
+  }
+  level: Visibility
+  audience?: Audience
+  gatedFields?: GatedField[]
+}
+
+export interface SourceDetail extends Source {
+  rules: Rule[]
+  syncRuns: SyncRun[]
+}
+
+export type EventState = 'live' | 'cancelled' | 'held' | 'removed'
+
+export interface EventOverride {
+  hidden?: boolean
+  category?: string
+  imageUrl?: string | null
+  visibility?: Visibility
+  audience?: Audience
+  gatedFields?: GatedField[]
+}
+
+export interface LedgerEvent {
+  id: string
+  sourceId: string
+  externalId: string
+  occurrence?: string | null
+  state: EventState
+  visibility: Visibility
+  visibilitySource?: VisibilitySource
+  card: EventCard
+  atUri?: string | null
+  atCid?: string | null
+  spaceUri?: string | null
+  teaserAtUri?: string | null
+  firstSeen: string
+  lastSeen: string
+  missingSince?: string | null
+  override: EventOverride | null
+}
+
+export interface Confirmation {
+  id: string
+  kind: 'extracted' | 'widen' | 'claim'
+  createdAt: string
+  expiresAt: string
+  channel: 'console' | 'email' | 'telegram'
+  sourceId?: string | null
+  cards: PreviewCard[]
+  proposed: Record<string, unknown>
+  evidence: Record<string, string>
+  /** For recurrences: the next three expanded dates, so the guess is checkable. */
+  nextDates?: string[]
+}
+
+export interface ApiKey {
+  id: string
+  name: string
+  createdAt: string
+  lastUsedAt?: string | null
+  /** Present exactly once, on creation. */
+  key?: string
+}
+
+export interface Inbound {
+  email: string
+  webhookUrl: string
+  webhookSecret: string
+}
+
+export interface PublicHost {
+  did: string
+  handle: string
+  displayName: string
+  provenanceLevel: ProvenanceLevel
+  logoUrl?: string | null
+  about?: string | null
+}
+
+export interface PublicEvent {
+  card: EventCard
+  host: PublicHost
+  did: string
+  rkey: string
+  /** Present only for a signed-in viewer who is entitled to it. */
+  audienceName?: string | null
+  locations?: Array<{ name?: string; street?: string; locality?: string; region?: string; coarse?: boolean }>
+  descriptionMd?: string | null
+  /** For gated events, the revealed details when this viewer is approved. */
+  revealed?: { exactLocation?: string; joinUrl?: string; attendeeNotes?: string } | null
+  requestState?: 'none' | 'pending' | 'approved' | 'denied'
+}
+
+export interface AudienceInfo {
+  spaceUri: string
+  policy: string
+  members: number
+  invites: Array<{ id: string; kind: 'join' | 'read' | 'read-join'; expiresAt: string; usesLeft: number | null; url?: string }>
+  requests: Array<{ id: string; did: string; handle: string; requestedAt: string; state: 'pending' | 'approved' | 'denied' }>
+}

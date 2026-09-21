@@ -1,0 +1,38 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Luma//Boulder Builders//EN
+X-WR-CALNAME:Boulder Builders
+X-WR-CALDESC:Luma Calendar
+REFRESH-INTERVAL;VALUE=DURATION:PT12H
+X-PUBLISHED-TTL:PT12H
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+BEGIN:VEVENT
+DTSTART:20261008T000000Z
+DTEND:20261008T020000Z
+DTSTAMP:20260921T163200Z
+ORGANIZER;CN="Boulder Builders":MAILTO:calendar-invite@lu.ma
+UID:evt-WubTRLpINkKUFc7@events.lu.ma
+SUMMARY:Builders Night: Maps and Places
+DESCRIPTION:Get up-to-date information at: https://luma.com/abcd1234\n\nAd
+ dress:\nGalvanize Boulder\nBoulder, CO\nUnited States\n\nHosted by Boulde
+ r Builders
+LOCATION:Galvanize Boulder, 1023 Walnut St, Boulder, CO 80302, USA
+GEO:40.0176;-105.2811
+SEQUENCE:212171520
+STATUS:TENTATIVE
+END:VEVENT
+BEGIN:VEVENT
+DTSTART:20261022T000000Z
+DTEND:20261022T020000Z
+DTSTAMP:20260921T163200Z
+ORGANIZER;CN="Boulder Builders":MAILTO:calendar-invite@lu.ma
+UID:evt-9zKpQ2mL7nRt4Xy@events.lu.ma
+SUMMARY:Builders Night: Online Edition
+DESCRIPTION:Join at https://zoom.us/j/123456789\n\nGet up-to-date informati
+ on at: https://lu.ma/efgh5678\n\nHosted by Boulder Builders
+LOCATION:Zoom
+SEQUENCE:212171521
+STATUS:TENTATIVE
+END:VEVENT
+END:VCALENDAR

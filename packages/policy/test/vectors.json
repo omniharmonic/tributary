@@ -1,0 +1,42 @@
+{
+  "_comment": "Shared predicate test vectors. Each case: policy, viewer (null = anonymous), claims the viewer holds for the space, expected. Authority is did:plc:auth. Keep in sync with the RegenOS AppView's write-path check (decision 5 for Lucian).",
+  "cases": [
+    { "name": "public admits anonymous", "policy": { "kind": "public" }, "viewer": null, "claims": {}, "expected": true },
+    { "name": "authorityOnly refuses anonymous", "policy": { "kind": "authorityOnly" }, "viewer": null, "claims": {}, "expected": false },
+    { "name": "authorityOnly admits the authority", "policy": { "kind": "authorityOnly" }, "viewer": "did:plc:auth", "claims": {}, "expected": true },
+    { "name": "authorityOnly refuses a member", "policy": { "kind": "authorityOnly" }, "viewer": "did:plc:m1", "claims": { "role": 20 }, "expected": false },
+    { "name": "memberRole refuses anonymous", "policy": { "kind": "memberRole", "atLeast": 10 }, "viewer": null, "claims": {}, "expected": false },
+    { "name": "memberRole refuses a non-member", "policy": { "kind": "memberRole", "atLeast": 10 }, "viewer": "did:plc:x", "claims": {}, "expected": false },
+    { "name": "memberRole admits at threshold", "policy": { "kind": "memberRole", "atLeast": 10 }, "viewer": "did:plc:m1", "claims": { "role": 10 }, "expected": true },
+    { "name": "memberRole refuses below threshold", "policy": { "kind": "memberRole", "atLeast": 20 }, "viewer": "did:plc:m1", "claims": { "role": 10 }, "expected": false },
+    { "name": "memberRole admits above threshold", "policy": { "kind": "memberRole", "atLeast": 10 }, "viewer": "did:plc:m1", "claims": { "role": 20 }, "expected": true },
+    { "name": "memberRole admits the authority implicitly", "policy": { "kind": "memberRole", "atLeast": 100 }, "viewer": "did:plc:auth", "claims": {}, "expected": true },
+    { "name": "invited admits an invited viewer", "policy": { "kind": "invited" }, "viewer": "did:plc:g1", "claims": { "invited": true }, "expected": true },
+    { "name": "invited refuses an uninvited viewer", "policy": { "kind": "invited" }, "viewer": "did:plc:g1", "claims": {}, "expected": false },
+    { "name": "invited refuses anonymous", "policy": { "kind": "invited" }, "viewer": null, "claims": { "invited": true }, "expected": false },
+    { "name": "sharedWith admits", "policy": { "kind": "sharedWith" }, "viewer": "did:plc:g1", "claims": { "sharedWith": true }, "expected": true },
+    { "name": "confirmedFor admits", "policy": { "kind": "confirmedFor" }, "viewer": "did:plc:g1", "claims": { "confirmedFor": true }, "expected": true },
+    { "name": "confirmedFor refuses an invited-but-unconfirmed viewer", "policy": { "kind": "confirmedFor" }, "viewer": "did:plc:g1", "claims": { "invited": true }, "expected": false },
+    { "name": "connectionOf authority admits a connection", "policy": { "kind": "connectionOf", "of": "authority" }, "viewer": "did:plc:c1", "claims": { "connectedToAuthority": true }, "expected": true },
+    { "name": "connectionOf authority refuses a stranger", "policy": { "kind": "connectionOf", "of": "authority" }, "viewer": "did:plc:c1", "claims": {}, "expected": false },
+    { "name": "gated detail: confirmed guest sees", "policy": { "kind": "any", "of": [{ "kind": "confirmedFor" }, { "kind": "authorityOnly" }, { "kind": "memberRole", "atLeast": 20 }] }, "viewer": "did:plc:g1", "claims": { "confirmedFor": true }, "expected": true },
+    { "name": "gated detail: steward sees", "policy": { "kind": "any", "of": [{ "kind": "confirmedFor" }, { "kind": "authorityOnly" }, { "kind": "memberRole", "atLeast": 20 }] }, "viewer": "did:plc:s1", "claims": { "role": 20 }, "expected": true },
+    { "name": "gated detail: plain member does not see", "policy": { "kind": "any", "of": [{ "kind": "confirmedFor" }, { "kind": "authorityOnly" }, { "kind": "memberRole", "atLeast": 20 }] }, "viewer": "did:plc:m1", "claims": { "role": 10 }, "expected": false },
+    { "name": "gated detail: anonymous does not see", "policy": { "kind": "any", "of": [{ "kind": "confirmedFor" }, { "kind": "authorityOnly" }, { "kind": "memberRole", "atLeast": 20 }] }, "viewer": null, "claims": {}, "expected": false },
+    { "name": "invite space: invited sees", "policy": { "kind": "any", "of": [{ "kind": "invited" }, { "kind": "sharedWith" }, { "kind": "memberRole", "atLeast": 10 }] }, "viewer": "did:plc:g1", "claims": { "invited": true }, "expected": true },
+    { "name": "invite space: stranger does not", "policy": { "kind": "any", "of": [{ "kind": "invited" }, { "kind": "sharedWith" }, { "kind": "memberRole", "atLeast": 10 }] }, "viewer": "did:plc:z", "claims": {}, "expected": false },
+    { "name": "all requires every clause", "policy": { "kind": "all", "of": [{ "kind": "invited" }, { "kind": "confirmedFor" }] }, "viewer": "did:plc:g1", "claims": { "invited": true }, "expected": false },
+    { "name": "all passes with every clause", "policy": { "kind": "all", "of": [{ "kind": "invited" }, { "kind": "confirmedFor" }] }, "viewer": "did:plc:g1", "claims": { "invited": true, "confirmedFor": true }, "expected": true },
+    { "name": "nested any/all", "policy": { "kind": "any", "of": [{ "kind": "all", "of": [{ "kind": "memberRole", "atLeast": 10 }, { "kind": "confirmedFor" }] }, { "kind": "authorityOnly" }] }, "viewer": "did:plc:m1", "claims": { "role": 10, "confirmedFor": true }, "expected": true },
+    { "name": "public inside any still admits anonymous", "policy": { "kind": "any", "of": [{ "kind": "memberRole", "atLeast": 10 }, { "kind": "public" }] }, "viewer": null, "claims": {}, "expected": true }
+  ],
+  "invalid": [
+    { "name": "unknown kind", "policy": { "kind": "not" } },
+    { "name": "negation is not in the grammar", "policy": { "kind": "not", "of": { "kind": "public" } } },
+    { "name": "empty any", "policy": { "kind": "any", "of": [] } },
+    { "name": "memberRole without threshold", "policy": { "kind": "memberRole" } },
+    { "name": "memberRole negative", "policy": { "kind": "memberRole", "atLeast": -1 } },
+    { "name": "connectionOf bad target", "policy": { "kind": "connectionOf", "of": "friend" } },
+    { "name": "not an object", "policy": "public" }
+  ]
+}

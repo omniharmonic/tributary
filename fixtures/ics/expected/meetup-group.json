@@ -1,0 +1,32 @@
+{
+  "meta": {
+    "title": "Boulder Python",
+    "prodId": "-//Meetup//Meetup Calendar 1.0//EN",
+    "url": "https://www.meetup.com/boulder-python/events/ical/"
+  },
+  "complete": true,
+  "dropped": 0,
+  "window": {
+    "from": "2026-10-15T00:00:00.000Z",
+    "to": "2026-10-15T00:00:00.000Z"
+  },
+  "events": [
+    {
+      "externalId": "event_312345678@meetup.com",
+      "name": "Boulder Python Monthly",
+      "description": "Boulder Python\nWednesday, October 14 at 6:00 PM\n\nLightning talks and pizza. Bring a laptop.\n\nhttps://www.meetup.com/boulder-python/events/312345678/",
+      "descriptionIsHtml": false,
+      "start": "2026-10-14T18:00:00",
+      "end": "2026-10-14T20:00:00",
+      "tz": "America/Denver",
+      "location": "Galvanize Boulder, 1023 Walnut St, Boulder, CO",
+      "geo": {
+        "lat": 40.0176,
+        "lon": -105.2811
+      },
+      "url": "https://www.meetup.com/boulder-python/events/312345678/",
+      "sourcePrivacy": "public",
+      "lastModified": "2026-09-15T00:00:00.000Z"
+    }
+  ]
+}

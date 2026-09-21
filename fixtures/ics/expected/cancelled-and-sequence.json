@@ -1,0 +1,39 @@
+{
+  "meta": {
+    "tz": "America/Denver",
+    "prodId": "-//Google Inc//Google Calendar 70.9054//EN"
+  },
+  "complete": true,
+  "dropped": 0,
+  "window": {
+    "from": "2026-10-15T23:00:00.000Z",
+    "to": "2026-10-17T23:00:00.000Z"
+  },
+  "events": [
+    {
+      "externalId": "keep@google.com",
+      "name": "Pollinator Walk (rescheduled twice)",
+      "start": "2026-10-15T23:00:00Z",
+      "end": "2026-10-16T01:00:00Z",
+      "tz": "America/Denver",
+      "sequence": 7,
+      "lastModified": "2026-09-20T10:10:10.000Z"
+    },
+    {
+      "externalId": "gone@google.com",
+      "name": "Night Hike",
+      "start": "2026-10-16T23:00:00Z",
+      "end": "2026-10-17T01:00:00Z",
+      "tz": "America/Denver",
+      "status": "cancelled",
+      "sequence": 1
+    },
+    {
+      "externalId": "tentative@google.com",
+      "name": "Maybe Picnic",
+      "start": "2026-10-17T23:00:00Z",
+      "end": "2026-10-18T01:00:00Z",
+      "tz": "America/Denver"
+    }
+  ]
+}

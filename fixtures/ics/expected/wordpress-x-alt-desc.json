@@ -1,0 +1,38 @@
+{
+  "meta": {
+    "title": "eTown Hall Events",
+    "tz": "America/Denver",
+    "prodId": "-//The Events Calendar//6.5//EN",
+    "url": "https://etown.example.org"
+  },
+  "complete": true,
+  "dropped": 0,
+  "window": {
+    "from": "2026-10-10T01:00:00.000Z",
+    "to": "2026-10-10T01:00:00.000Z"
+  },
+  "events": [
+    {
+      "externalId": "10042-1760040000-1760050800@etown.example.org",
+      "name": "An Evening with the Bluegrass Collective",
+      "description": "<p>Doors <strong>6pm</strong>. Tickets $25 advance.</p><p><a href=\"https://etown.example.org/tickets/bluegrass\">Buy tickets</a></p>",
+      "descriptionIsHtml": true,
+      "start": "2026-10-09T19:00:00",
+      "end": "2026-10-09T22:00:00",
+      "tz": "America/Denver",
+      "location": "eTown Hall, 1535 Spruce St, Boulder, CO, 80302, United States",
+      "geo": {
+        "lat": 40.0189,
+        "lon": -105.2795
+      },
+      "url": "https://etown.example.org/event/bluegrass-collective/",
+      "imageUrl": "https://etown.example.org/wp-content/uploads/2026/09/bluegrass.jpg",
+      "organizerName": "eTown",
+      "tags": [
+        "Music",
+        "Live Performance"
+      ],
+      "lastModified": "2026-09-10T00:00:00.000Z"
+    }
+  ]
+}

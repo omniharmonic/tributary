@@ -1,0 +1,5 @@
+{ "name": "@tributary/mcp", "version": "0.1.0", "private": true, "license": "AGPL-3.0-or-later", "type": "module", "main": "./src/index.ts", "bin": { "tributary-mcp": "./src/index.ts" },
+  "description": "MCP server exposing add_source, publish_event, list_my_events, update_event, cancel_event over the Tributary API.",
+  "scripts": { "build": "tsc -p tsconfig.json", "typecheck": "tsc -p tsconfig.json --noEmit", "test": "vitest run", "start": "tsx src/index.ts" },
+  "dependencies": { "@modelcontextprotocol/sdk": "^1.30.0", "zod": "^4.6.4" },
+  "devDependencies": { "@types/node": "^22.15.0", "tsx": "^4.19.2", "typescript": "^5.9.2", "vitest": "^3.2.4" } }

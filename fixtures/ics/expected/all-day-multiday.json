@@ -1,0 +1,63 @@
+{
+  "meta": {
+    "tz": "America/Denver",
+    "prodId": "-//Example//All day//EN"
+  },
+  "complete": true,
+  "dropped": 0,
+  "window": {
+    "from": "2026-10-01T06:00:00.000Z",
+    "to": "2026-12-01T07:00:00.000Z"
+  },
+  "events": [
+    {
+      "externalId": "all-day-recurring@example.org",
+      "occurrence": "2026-10-01T06:00:00.000Z",
+      "name": "First of the Month Cleanup",
+      "start": "2026-10-01",
+      "end": "2026-10-02",
+      "tz": "America/Denver",
+      "allDay": true,
+      "seriesKey": "all-day-recurring@example.org"
+    },
+    {
+      "externalId": "festival-2026@example.org",
+      "name": "Boulder Fall Festival",
+      "description": "Three days on Pearl Street.",
+      "descriptionIsHtml": false,
+      "start": "2026-10-16",
+      "end": "2026-10-19",
+      "tz": "America/Denver",
+      "allDay": true,
+      "location": "Pearl Street Mall, Boulder, CO"
+    },
+    {
+      "externalId": "single-day@example.org",
+      "name": "Halloween Parade (no DTEND)",
+      "start": "2026-10-31",
+      "end": "2026-11-01",
+      "tz": "America/Denver",
+      "allDay": true
+    },
+    {
+      "externalId": "all-day-recurring@example.org",
+      "occurrence": "2026-11-01T06:00:00.000Z",
+      "name": "First of the Month Cleanup",
+      "start": "2026-11-01",
+      "end": "2026-11-02",
+      "tz": "America/Denver",
+      "allDay": true,
+      "seriesKey": "all-day-recurring@example.org"
+    },
+    {
+      "externalId": "all-day-recurring@example.org",
+      "occurrence": "2026-12-01T07:00:00.000Z",
+      "name": "First of the Month Cleanup",
+      "start": "2026-12-01",
+      "end": "2026-12-02",
+      "tz": "America/Denver",
+      "allDay": true,
+      "seriesKey": "all-day-recurring@example.org"
+    }
+  ]
+}

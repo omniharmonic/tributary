@@ -1,0 +1,5 @@
+{ "name": "@tributary/publisher", "version": "0.1.0", "license": "AGPL-3.0-or-later", "type": "module", "main": "./src/index.ts", "types": "./src/index.ts", "exports": { ".": "./src/index.ts" },
+  "description": "atproto writers: build, validate, upload blob, CAS write. Narrow so a Rust publisher can replace it later.",
+  "scripts": { "build": "tsc -p tsconfig.json", "typecheck": "tsc -p tsconfig.json --noEmit", "test": "vitest run" },
+  "dependencies": { "@atproto/api": "^0.20.44", "@tributary/event-model": "workspace:*", "@tributary/ssrf-fetch": "workspace:*", "sharp": "^0.35.4" },
+  "devDependencies": { "@types/node": "^22.15.0", "typescript": "^5.9.2", "vitest": "^3.2.4" } }
