@@ -143,6 +143,8 @@ Force a rewrite (e.g. after a profile bump). `202`.
 ### `POST /api/v1/events` (API key)
 Idempotent by `externalId`. Body: one `RawEvent`-shaped object plus `{ "visibility"?, "audience"?, "gatedFields"? }`, or `{ "events": [ … ] }` for up to 200. `200 { "results": [ { "externalId", "action": "created" | "updated" | "unchanged" | "held", "atUri" } ] }`. `PUT /api/v1/events/:externalId` same body; `DELETE /api/v1/events/:externalId` → `{ "action": "cancelled" }` (cancelled now, deleted after the grace period; `?hard=1` deletes at once).
 
+API-key routes are rate limited per host: 600 writes an hour, 60 source connects an hour (`429 RateLimited`).
+
 ### `GET /api/v1/events` (API key)
 The host's ledger, same shape as `/api/events`.
 
@@ -198,8 +200,8 @@ One public event (or `404`, byte-identical for not-found and not-permitted).
 ### `GET /api/public/hosts/:handle`
 A host's public profile and public events.
 
-### `GET /api/public/regions/:region/calendar.ics`
-Public events as a `text/calendar` feed. `GET /api/public/hosts/:handle/calendar.ics` per host.
+### `GET /api/public/regions/:region/calendar.ics?category=`
+Public events as a `text/calendar` feed; `category` narrows it to one category or tag. `GET /api/public/hosts/:handle/calendar.ics` per host.
 
 ### `GET /api/public/img/:did/:cid`
 The image proxy: fetches `getBlob` from the repo's PDS, re-encodes, caches forever by CID.

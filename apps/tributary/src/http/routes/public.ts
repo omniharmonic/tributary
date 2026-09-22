@@ -211,7 +211,9 @@ export function icsFor(items: Array<{ n: NormalizedEvent; uid: string; cancelled
   return lines.map((l) => (l.length > 74 ? (l.match(/.{1,73}/g) ?? [l]).join('\r\n ') : l)).join('\r\n') + '\r\n'
 }
 
+/** The regional feed; `?category=` narrows it (F17: per-region and per-category subscriptions). */
 publicRoutes.get('/regions/:region/calendar.ics', async (c) => {
+  const category = c.req.query('category')?.trim().toLowerCase()
   const rows = await getDb()
     .select({ e: sourceEvent, h: host })
     .from(sourceEvent)
@@ -219,9 +221,12 @@ publicRoutes.get('/regions/:region/calendar.ics', async (c) => {
     .where(and(eq(host.region, c.req.param('region')), eq(sourceEvent.state, 'live'), inArray(sourceEvent.visibility, PUBLIC_VIS), gte(sourceEvent.startsAt, new Date(Date.now() - 86_400_000))))
     .orderBy(sourceEvent.startsAt)
     .limit(1000)
+  const items = rows
+    .map(({ e }) => e.normalized as unknown as NormalizedEvent)
+    .filter((n) => !category || n.category === category || n.tags.includes(category))
   c.header('Content-Type', 'text/calendar; charset=utf-8')
   c.header('Cache-Control', 'public, max-age=900')
-  return c.body(icsFor(rows.map(({ e }) => ({ n: e.normalized as unknown as NormalizedEvent, uid: `${e.id}@${new URL(config().WEB_PUBLIC_URL).hostname}`, cancelled: false })), `${config().BRAND_NAME}`))
+  return c.body(icsFor(rows.filter(({ e }) => items.includes(e.normalized as unknown as NormalizedEvent)).map(({ e }) => ({ n: e.normalized as unknown as NormalizedEvent, uid: `${e.id}@${new URL(config().WEB_PUBLIC_URL).hostname}`, cancelled: false })), category ? `${config().BRAND_NAME} · ${category}` : `${config().BRAND_NAME}`))
 })
 
 publicRoutes.get('/hosts/:handle/calendar.ics', async (c) => {

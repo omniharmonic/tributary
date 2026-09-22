@@ -15,7 +15,7 @@ import { enqueueSync } from '../../jobs/index.js'
 import { describeError, log } from '../../lib/logging.js'
 import { detect } from '../../lib/preview.js'
 import { connectSource, markPushedDeleted, pushRawEvents, pushSourceFor, SourceError } from '../../lib/sources.js'
-import { ApiError, body, requireHost, type Vars } from '../context.js'
+import { ApiError, body, rateLimit, requireHost, type Vars } from '../context.js'
 import { ledgerView } from './events.js'
 import { queueExtraction } from './confirmations.js'
 import { parseIcs } from '@tributary/connectors/ics'
@@ -84,6 +84,13 @@ async function ingest(h: HostRow, channel: 'api' | 'webhook' | 'mcp', items: Rec
   })
 }
 
+/** Per-host budget for the builder surface: 600 writes an hour, 60 source connects. */
+v1Routes.use('*', async (c, next) => {
+  const h = requireHost(c)
+  if (c.req.method !== 'GET') rateLimit(`v1:${h.id}`, 600, 3_600_000)
+  await next()
+})
+
 v1Routes.post('/events', async (c) => {
   const h = requireHost(c)
   const b = await body<Record<string, unknown>>(c)
@@ -120,6 +127,7 @@ v1Routes.get('/events', async (c) => {
 
 v1Routes.post('/sources', async (c) => {
   const h = requireHost(c)
+  rateLimit(`v1-sources:${h.id}`, 60, 3_600_000)
   const b = await body(c)
   const input = typeof b.input === 'string' ? b.input.trim() : ''
   if (!input) throw new ApiError(400, 'InvalidInput', 'input is required.')
