@@ -14,7 +14,8 @@
     "start": "tsx src/index.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/db/migrate.ts",
-    "smoke": "tsx scripts/smoke.ts"
+    "smoke": "tsx scripts/smoke.ts",
+    "checks": "tsx scripts/checks.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.127.0",
