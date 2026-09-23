@@ -16,9 +16,9 @@
  * or the shorthand `["<url>", …]`.
  */
 import { readFileSync } from 'node:fs'
-import { eq } from 'drizzle-orm'
+import { count, eq, sql } from 'drizzle-orm'
 import { closeDb, getDb } from '../src/db/index.js'
-import { host, source } from '../src/db/schema.js'
+import { host, source, sourceEvent } from '../src/db/schema.js'
 import { config } from '../src/config.js'
 import { provisionCustodialAccount, randomPassword, newToken } from '@tributary/identity'
 import { pdsConfig } from '../src/lib/custody.js'
@@ -27,7 +27,6 @@ import { storeAppPassword } from '../src/lib/hosts.js'
 import { inboundAddress } from '../src/db/schema.js'
 import { detect } from '../src/lib/preview.js'
 import { connectSource, SourceError } from '../src/lib/sources.js'
-import { runSource } from '../src/pipeline/run.js'
 import { recordAudit } from '../src/lib/audit.js'
 
 interface Seed {
@@ -129,6 +128,8 @@ async function main(): Promise<void> {
         continue
       }
       const { source: row, created } = await connectSource(curator, { type: m.type, platform: m.platform, match: m, defaultVisibility: 'public', label: seed.label })
+      // `connectSource` already enqueues the first sync, which runs inline when the job
+      // runner is off. Counting from the ledger avoids reporting a second, no-op run.
       if (!created) {
         console.log(`HAVE  ${row.label}`)
         skipped++
@@ -138,8 +139,11 @@ async function main(): Promise<void> {
       await getDb().update(source).set({ claimed: false }).where(eq(source.id, row.id))
       added++
       if (opts.sync) {
-        const r = await runSource(row.id, { trigger: 'first' })
-        console.log(`ADD   ${row.label}\n      ${r.ok ? `${r.published} published, ${r.held} held, ${r.failed} failed` : `sync failed: ${r.error?.message}`}`)
+        const [counts] = await getDb()
+          .select({ live: count(sql`case when ${sourceEvent.state} = 'live' then 1 end`), held: count(sql`case when ${sourceEvent.state} = 'held' then 1 end`) })
+          .from(sourceEvent)
+          .where(eq(sourceEvent.sourceId, row.id))
+        console.log(`ADD   ${row.label}\n      ${Number(counts?.live ?? 0)} live, ${Number(counts?.held ?? 0)} held`)
       } else {
         console.log(`ADD   ${row.label}`)
       }
