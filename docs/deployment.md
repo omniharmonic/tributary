@@ -74,6 +74,38 @@ Roll back with `git checkout <previous> && $C build && $C up -d`. A release that
 4. The public directory `/` lists the events; `/api/public/regions/boulder/calendar.ics` returns a feed.
 5. `https://<label>.boulderevents.directory/.well-known/atproto-did` returns the DID for the minted handle.
 
+## Seeding a region's calendars
+
+`infra/seeds/boulder.json` is the verified Boulder County list; `docs/sources.md` explains
+each entry and what is deliberately absent. To load it:
+
+```sh
+C="docker compose --env-file infra/production/.env -f infra/production/compose.yml"
+$C cp infra/seeds/boulder.json tributary:/tmp/seeds.json
+$C exec -T -w /app/apps/tributary tributary \
+  node_modules/.bin/tsx scripts/seed-sources.ts --file /tmp/seeds.json
+```
+
+Three things are worth knowing before you start it.
+
+It takes hours, because every event is geocoded and written to the PDS. Run it detached
+(`setsid nohup … > seed.log 2>&1 < /dev/null &`), and note that a `docker compose up`
+restarts the container and kills the run. That is survivable: the script only *connects*
+sources, and once a source exists the scheduler keeps syncing it, so re-running afterwards
+picks up where it left off and prints `HAVE` for everything already in.
+
+Node block-buffers stdout to a file, so the log stays empty for a long while. Watch the
+ledger instead, which is the real signal:
+
+```sh
+$C exec -T db psql -U tributary -c \
+  "select s.label, s.type, s.status, count(e.id) from tb_source s
+   left join tb_source_event e on e.source_id = s.id group by 1,2,3 order by 4 desc;"
+```
+
+`--dry-run` shows what each input would become without writing anything, `--list` prints
+the sources already connected, and `--url` seeds one address without a file.
+
 ## Optional services
 
 - **Photon** (self-hosted geocoding): see `infra/photon/`. Set `PHOTON_URL`. Without it the built-in Boulder County gazetteer still resolves known venues.
