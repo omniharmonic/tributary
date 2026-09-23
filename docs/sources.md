@@ -111,7 +111,17 @@ Also unreachable, each confirmed rather than assumed:
 | Impact Hub Boulder, Longmont Startup Week | Domains expired and repurposed. Do not wire these up. |
 | `actualize.earth` | Boulder is its pilot city, but events live in its mobile app; no public feed |
 
-## Two traps worth remembering
+## Three traps worth remembering
+
+**Localist lies about the timezone.** CU Boulder's feeds declare
+`X-WR-TIMEZONE:Eastern Time (US & Canada)` (an ActiveSupport name, not even an IANA one)
+while writing every DTSTART in UTC. The instants are correct, so nothing is ever at the
+wrong moment, but the label travels into the record and `startsAt` carries an offset
+rather than a zone, so the label is what a card renders. A December concert at Macky
+Auditorium read "9:30 PM EST" to every reader in Boulder. `localizeZone` in
+`pipeline/enrich.ts` relabels an event once it is pinned inside the region, and relabels
+only: the instant is never reinterpreted.
+
 
 **Luma ICS returns the full event history.** Meetup's returns only upcoming, so zero
 VEVENTs there means a dormant group, not a broken feed. Our ICS parser applies the
