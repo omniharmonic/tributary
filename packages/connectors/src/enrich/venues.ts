@@ -270,7 +270,7 @@ export function normalizeVenueText(s: string): string {
     .toLowerCase()
     .normalize('NFKD')
     .replace(DIACRITIC, '')
-    .replace(/[‘’ʼ]/g, '')
+    .replace(/['‘’ʼ]/g, '')
     .replace(/&/g, ' and ')
     .replace(/[^a-z0-9]+/g, ' ')
     .split(' ')

@@ -56,11 +56,25 @@ function normalizeState(raw: string): string {
   return /^colo/i.test(raw) ? 'CO' : raw.toUpperCase()
 }
 
-/** Does this segment read as a street line? */
-function isStreet(segment: string): boolean {
+/**
+ * The street line inside a segment, or `undefined`. The anchored pass is the precise
+ * one; the loose pass exists for prose like "in person at 1535 Spruce St" and only runs
+ * when no segment started with a house number.
+ */
+function extractStreet(segment: string, anchored: boolean): string | undefined {
   const s = segment.replace(UNIT_RE, '').trim()
-  if (!/^\d/.test(s)) return false
-  return STREET_RE.test(s) || LOOSE_STREET_RE.test(s)
+  if (anchored) {
+    if (!/^\d/.test(s)) return undefined
+    const m = STREET_RE.exec(s)
+    if (m) return tidy(m[0])
+    return LOOSE_STREET_RE.test(s) ? s : undefined
+  }
+  const m = STREET_ANYWHERE_RE.exec(s)
+  return m ? tidy(m[0]) : undefined
+}
+
+function isStreet(segment: string): boolean {
+  return extractStreet(segment, true) !== undefined
 }
 
 /** Split a segment that ends in a known locality, e.g. "1001 Arapahoe Ave Boulder". */
@@ -135,10 +149,13 @@ export function parseAddressLine(text: string | undefined | null): ParsedAddress
     }
   }
 
-  const streetAt = segments.findIndex(isStreet)
-  const street = streetAt >= 0 ? segments[streetAt] : undefined
-  const nameParts = streetAt >= 0 ? segments.slice(0, streetAt) : locality || region || postalCode ? segments : segments
-  const venueName = nameParts.filter((s) => !isStreet(s)).join(', ') || undefined
+  let streetAt = segments.findIndex(isStreet)
+  let street = streetAt >= 0 ? extractStreet(segments[streetAt]!, true) : undefined
+  if (!street) {
+    streetAt = segments.findIndex((s) => extractStreet(s, false) !== undefined)
+    street = streetAt >= 0 ? extractStreet(segments[streetAt]!, false) : undefined
+  }
+  const venueName = (streetAt >= 0 ? segments.slice(0, streetAt) : segments).filter((s) => !isStreet(s)).join(', ') || undefined
 
   if (!street && !locality && !region && !postalCode && !venueName) return undefined
   return {
@@ -153,5 +170,6 @@ export function parseAddressLine(text: string | undefined | null): ParsedAddress
 /** The street-first query a geocoder should be given, or `undefined` if there is none. */
 export function geocodableQuery(p: ParsedAddress): string | undefined {
   if (!p.street) return undefined
-  return [p.street, p.locality, p.region, p.postalCode].filter(Boolean).join(', ')
+  const stateAndZip = [p.region, p.postalCode].filter(Boolean).join(' ')
+  return [p.street, p.locality, stateAndZip || undefined].filter(Boolean).join(', ')
 }

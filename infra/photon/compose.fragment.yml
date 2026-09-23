@@ -1,0 +1,44 @@
+# Photon geocoder, as a fragment to paste into infra/production/compose.yml.
+#
+# Not merged into the production stack by default: the index is the largest thing on the
+# box by far, so turning it on is a deliberate act with a disk check first. See README.md
+# in this directory. Tributary reads PHOTON_URL; with it unset the built-in Boulder County
+# gazetteer still resolves known venues and everything else publishes without a pin.
+#
+# The environment variable names below are the ones `rtuszik/photon-docker` used when this
+# was written. Check that image's README before a first deploy — it has renamed them before.
+services:
+  photon:
+    image: rtuszik/photon-docker:latest
+    restart: unless-stopped
+    environment:
+      # English only. The multi-language index is several times larger and we never read
+      # the other names.
+      PHOTON_LANGUAGES: en
+      # Which prebuilt extract to download on first boot. `us` is the smallest prebuilt
+      # index that covers Colorado; see README.md for building a Colorado-only one instead.
+      REGION: us
+      # We re-import by hand rather than nightly: an update that fails halfway leaves the
+      # index unusable, and a month-stale street index is fine for event venues.
+      UPDATE_STRATEGY: DISABLED
+    volumes:
+      - photon_index:/photon/photon_data
+    healthcheck:
+      # The index takes a long time to open after a cold start; do not shorten start_period.
+      test: [CMD, wget, -qO-, 'http://localhost:2322/status']
+      interval: 30s
+      timeout: 10s
+      start_period: 600s
+      retries: 10
+    # Internal only. Nothing outside the compose network should reach the geocoder.
+    networks: [default]
+
+  # On the `tributary` service add:
+  #   environment:
+  #     PHOTON_URL: http://photon:2322
+  #   depends_on:
+  #     photon:
+  #       condition: service_healthy   # only if you want boot to wait; sync degrades fine without it
+
+volumes:
+  photon_index:

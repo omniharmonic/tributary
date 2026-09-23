@@ -85,8 +85,9 @@ services:
     volumes:
       - meili:/meili_data
     healthcheck:
-      # The health endpoint is unauthenticated on purpose.
-      test: [CMD-SHELL, 'wget -qO- http://localhost:7700/health | grep -q available']
+      # The health endpoint is unauthenticated on purpose. 127.0.0.1, not localhost:
+      # Meilisearch binds IPv4 only, and localhost resolves to ::1 first in this image.
+      test: [CMD-SHELL, 'wget -qO- http://127.0.0.1:7700/health | grep -q available']
       interval: 15s
       timeout: 5s
       start_period: 30s

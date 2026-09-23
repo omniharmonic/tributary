@@ -3,7 +3,7 @@
  * categories. Cached by source URL and by normalized address.
  */
 import { eq, sql } from 'drizzle-orm'
-import { categorize, geocode, matchVenue, normalizeAddress, recoverImage } from '@tributary/connectors/enrich'
+import { categorize, geocodeBest, normalizeAddress, recoverImage } from '@tributary/connectors/enrich'
 import { rehash, type NormalizedEvent } from '@tributary/event-model'
 import { config } from '../config.js'
 import { getDb } from '../db/index.js'
@@ -67,30 +67,39 @@ export async function enrich(events: NormalizedEvent[], opts: EnrichOptions = {}
       }
       if (!e.image && opts.hostLogoHash) e = { ...e, image: { bytesRef: opts.hostLogoHash, origin: 'host-logo' } }
 
-      // Places: venue table first, then geocoding.
+      // Places: the gazetteer first because it is free and also corrects the name and
+      // address, then Photon on the parsed street, then Photon on the raw string.
       if (e.mode !== 'virtual' && e.locations.length > 0) {
         const l = e.locations[0]!
         const text = [l.name, l.street, l.locality].filter(Boolean).join(', ')
-        const venue = matchVenue(text)
-        if (venue) {
-          e = { ...e, locations: [{ ...l, name: l.name && l.name.length < venue.name.length + 10 ? venue.name : l.name ?? venue.name, street: l.street ?? venue.street, locality: l.locality ?? venue.locality, region: l.region ?? venue.region, postalCode: l.postalCode ?? venue.postalCode, country: l.country ?? venue.country, lat: l.lat ?? venue.lat, lon: l.lon ?? venue.lon }, ...e.locations.slice(1)] }
-        } else if (l.lat === undefined && c.PHOTON_URL && text) {
+        if (text) {
           const key = normalizeAddress(text)
           const cached = await getDb().select().from(geocodeCache).where(eq(geocodeCache.key, key)).limit(1)
-          let hit = cached[0] ? (cached[0].lat ? { lat: Number(cached[0].lat), lon: Number(cached[0].lon), precision: (cached[0].precision ?? 'exact') as 'exact' | 'city' } : undefined) : undefined
-          if (!cached[0]) {
-            const g = await geocode(text, { photonUrl: c.PHOTON_URL, http, bias: { lat: 40.015, lon: -105.27 } }).catch(() => undefined)
-            hit = g
+          // The gazetteer always runs: it is offline, free, and also corrects the venue
+          // name and address. Photon only runs when the gazetteer missed AND we have no
+          // cached answer for this address.
+          const best = await geocodeBest(text, { photonUrl: cached[0] ? '' : c.PHOTON_URL, http }).catch(() => undefined)
+          if (!cached[0] && best && best.via !== 'venue') {
             await getDb()
               .insert(geocodeCache)
-              .values({ key, lat: g ? String(g.lat) : null, lon: g ? String(g.lon) : null, precision: g?.precision ?? null })
+              .values({ key, lat: String(best.result.lat), lon: String(best.result.lon), precision: best.result.precision })
               .onConflictDoNothing()
-            if (g?.locality && !l.locality) e = { ...e, locations: [{ ...e.locations[0]!, locality: g.locality, region: g.region ?? l.region, postalCode: g.postalCode ?? l.postalCode }, ...e.locations.slice(1)] }
           }
-          if (hit && hit.precision === 'exact') e = { ...e, locations: [{ ...e.locations[0]!, lat: hit.lat, lon: hit.lon }, ...e.locations.slice(1)] }
+          const v = best?.venue
+          if (v) {
+            e = { ...e, locations: [{ ...l, name: v.name, street: l.street ?? v.street, locality: l.locality ?? v.locality, region: l.region ?? v.region, postalCode: l.postalCode ?? v.postalCode, country: l.country ?? v.country, lat: l.lat ?? v.lat, lon: l.lon ?? v.lon, precision: v.precision === 'exact' ? l.precision : 'neighborhood' }, ...e.locations.slice(1)] }
+          }
+          const r = best?.result ?? (cached[0]?.lat ? { lat: Number(cached[0].lat), lon: Number(cached[0].lon), precision: (cached[0].precision ?? 'exact') as 'exact' | 'city' } : undefined)
+          if (r && e.locations[0]!.lat === undefined) {
+            // A city centroid is not a pin. Record it as a coarse location instead.
+            e = r.precision === 'exact'
+              ? { ...e, locations: [{ ...e.locations[0]!, lat: r.lat, lon: r.lon }, ...e.locations.slice(1)] }
+              : { ...e, locations: [{ ...e.locations[0]!, lat: r.lat, lon: r.lon, precision: 'city' }, ...e.locations.slice(1)] }
+          }
+          if (r?.locality && !e.locations[0]!.locality) e = { ...e, locations: [{ ...e.locations[0]!, locality: r.locality, region: r.region ?? e.locations[0]!.region, postalCode: r.postalCode ?? e.locations[0]!.postalCode }, ...e.locations.slice(1)] }
         }
-        // A bare locality helps the region filter even without coordinates.
-        if (!e.locations[0]!.locality && /boulder/i.test(text)) e = { ...e, locations: [{ ...e.locations[0]!, locality: 'Boulder', region: 'CO' }, ...e.locations.slice(1)] }
+        // A bare locality still helps the region filter even with no coordinates.
+        if (!e.locations[0]!.locality && /boulder/i.test(text || '')) e = { ...e, locations: [{ ...e.locations[0]!, locality: 'Boulder', region: 'CO' }, ...e.locations.slice(1)] }
       }
 
       // Categories.

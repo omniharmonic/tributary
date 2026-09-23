@@ -239,7 +239,7 @@ describe('geocodeBest', () => {
     expect(best?.via).toBe('address')
     expect(best?.result).toMatchObject({ lat: 40.0221, precision: 'exact', locality: 'Boulder' })
     // The street, not the venue name, is what went to Photon.
-    expect(decodeURIComponent(calls[0]!)).toContain('q=1234 Pine St, Boulder, CO 80302')
+    expect(new URL(calls[0]!).searchParams.get('q')).toBe('1234 Pine St, Boulder, CO 80302')
   })
 
   it('falls back to the raw string when the street is unknown', async () => {
