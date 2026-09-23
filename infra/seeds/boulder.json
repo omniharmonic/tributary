@@ -1,0 +1,230 @@
+[
+ {
+  "input": "https://bouldercounty.gov/events/",
+  "label": "Boulder County"
+ },
+ {
+  "input": "https://www.longmontcolorado.gov/events/",
+  "label": "City of Longmont"
+ },
+ {
+  "input": "https://www.erieco.gov/common/modules/iCalendar/iCalendar.aspx?catID=14&feed=calendar",
+  "label": "Town of Erie"
+ },
+ {
+  "input": "https://www.lafayetteco.gov/common/modules/iCalendar/iCalendar.aspx?catID=14&feed=calendar",
+  "label": "City of Lafayette"
+ },
+ {
+  "input": "https://www.nederlandco.org/common/modules/iCalendar/iCalendar.aspx?catID=14&feed=calendar",
+  "label": "Town of Nederland"
+ },
+ {
+  "input": "https://lyonscolorado.com/common/modules/iCalendar/iCalendar.aspx?catID=14&feed=calendar",
+  "label": "Town of Lyons"
+ },
+ {
+  "input": "https://calendar.boulderlibrary.org/ical_subscribe.php?src=c&cid=12892",
+  "label": "Boulder Public Library"
+ },
+ {
+  "input": "https://lafayettepubliclibrary.libcal.com/ical_subscribe.php?src=c&cid=10144",
+  "label": "Lafayette Public Library"
+ },
+ {
+  "input": "https://nederland.libcal.com/ical_subscribe.php?src=c&cid=4818",
+  "label": "Nederland Community Library"
+ },
+ {
+  "input": "https://calendar.colorado.edu/group/cu_presents/calendar.ics",
+  "label": "CU Presents"
+ },
+ {
+  "input": "https://calendar.colorado.edu/group/conference_on_world_affairs/calendar.ics",
+  "label": "CU Conference on World Affairs"
+ },
+ {
+  "input": "https://calendar.colorado.edu/group/ecenter/calendar.ics",
+  "label": "CU Environmental Center"
+ },
+ {
+  "input": "https://calendar.colorado.edu/group/naturalhistory/calendar.ics",
+  "label": "CU Museum of Natural History"
+ },
+ {
+  "input": "https://calendar.colorado.edu/group/cuartmuseum/calendar.ics",
+  "label": "CU Art Museum"
+ },
+ {
+  "input": "https://calendar.colorado.edu/group/atlas/calendar.ics",
+  "label": "CU ATLAS Institute"
+ },
+ {
+  "input": "https://calendar.colorado.edu/group/fiske_planetarium/calendar.ics",
+  "label": "Fiske Planetarium"
+ },
+ {
+  "input": "https://www.naropa.edu/events/",
+  "label": "Naropa University"
+ },
+ {
+  "input": "https://www.chautauqua.com/events/",
+  "label": "Colorado Chautauqua"
+ },
+ {
+  "input": "https://www.bmoca.org/events",
+  "label": "BMoCA"
+ },
+ {
+  "input": "https://www.museumofboulder.org/events/",
+  "label": "Museum of Boulder"
+ },
+ {
+  "input": "https://www.betc.org/upcoming-shows",
+  "label": "Boulder Ensemble Theatre Company"
+ },
+ {
+  "input": "https://thedairy.org/",
+  "label": "Dairy Arts Center"
+ },
+ {
+  "input": "https://nissis.com/events/",
+  "label": "Nissi's"
+ },
+ {
+  "input": "https://www.longmontpublicmedia.org/events",
+  "label": "Longmont Public Media"
+ },
+ {
+  "input": "https://coloradomusicfestival.org/events/",
+  "label": "Colorado Music Festival"
+ },
+ {
+  "input": "https://www.cmc.org/community/front-range-groups/boulder/calendar-of-events-trips-and-courses/upcoming-boulder-group-events-trips-and-courses/ical-view",
+  "label": "Colorado Mountain Club, Boulder Group"
+ },
+ {
+  "input": "https://www.coolboulder.org/main-calendar",
+  "label": "Cool Boulder"
+ },
+ {
+  "input": "https://www.thornenature.org/events-calendar",
+  "label": "Thorne Nature Experience"
+ },
+ {
+  "input": "https://www.boulderaudubon.org/all-events",
+  "label": "Boulder County Audubon Society"
+ },
+ {
+  "input": "https://wildbear.org/events",
+  "label": "Wild Bear Nature Center"
+ },
+ {
+  "input": "https://www.bouldermountainbike.org/events/",
+  "label": "Boulder Mountainbike Alliance"
+ },
+ {
+  "input": "https://resourcecentral.org/events/",
+  "label": "Resource Central"
+ },
+ {
+  "input": "https://rockymountaininsight.org/events/",
+  "label": "Rocky Mountain Insight"
+ },
+ {
+  "input": "https://www.meetup.com/bdnewtech/events/ical/",
+  "label": "New Tech Colorado"
+ },
+ {
+  "input": "https://www.meetup.com/boulderdatascience/events/ical/",
+  "label": "Boulder Data Science, ML and AI"
+ },
+ {
+  "input": "https://www.meetup.com/boulder-linux-users-group-blug/events/ical/",
+  "label": "Boulder Linux Users Group"
+ },
+ {
+  "input": "https://www.meetup.com/boulder-elixir/events/ical/",
+  "label": "Boulder Elixir"
+ },
+ {
+  "input": "https://www.meetup.com/secure-ai-devops-boulder/events/ical/",
+  "label": "Secure AI and DevOps Boulder"
+ },
+ {
+  "input": "https://www.meetup.com/boulderstartups/events/ical/",
+  "label": "Boulder Startups"
+ },
+ {
+  "input": "https://www.meetup.com/boulderjavausersgroup/events/ical/",
+  "label": "Boulder Java Users Group"
+ },
+ {
+  "input": "https://www.meetup.com/ai-coding-cloud/events/ical/",
+  "label": "AI Coding and Cloud"
+ },
+ {
+  "input": "https://www.meetup.com/longmontai/events/ical/",
+  "label": "Longmont AI for Business Owners"
+ },
+ {
+  "input": "https://www.meetup.com/techyeet/events/ical/",
+  "label": "TechYeet"
+ },
+ {
+  "input": "https://www.meetup.com/rockies-venture-club/events/ical/",
+  "label": "Rockies Venture Club"
+ },
+ {
+  "input": "https://www.meetup.com/boulderawsusergroup/events/ical/",
+  "label": "Boulder AWS User Group"
+ },
+ {
+  "input": "https://www.meetup.com/entrepreneurs-creators-of-longmont/events/ical/",
+  "label": "Entrepreneurs and Creators of Longmont"
+ },
+ {
+  "input": "https://www.meetup.com/boulder-python/events/ical/",
+  "label": "Boulder Python"
+ },
+ {
+  "input": "https://www.meetup.com/boulder-js/events/ical/",
+  "label": "Boulder JS"
+ },
+ {
+  "input": "https://www.meetup.com/rmaiig/events/ical/",
+  "label": "Rocky Mountain AI Interest Group"
+ },
+ {
+  "input": "https://www.meetup.com/regenhub/events/ical/",
+  "label": "RegenHub"
+ },
+ {
+  "input": "https://luma.com/coloradostartups",
+  "label": "Colorado Startups"
+ },
+ {
+  "input": "https://luma.com/boulder-tech-connect",
+  "label": "Boulder Tech Connect"
+ },
+ {
+  "input": "https://luma.com/boulderclimatehappyhour",
+  "label": "Boulder Climate Happy Hour"
+ },
+ {
+  "input": "https://luma.com/boulder-ruby",
+  "label": "Boulder Ruby"
+ },
+ {
+  "input": "https://luma.com/spiritofthefrontrange",
+  "label": "Spirit of the Front Range"
+ },
+ {
+  "input": "https://luma.com/woven-web",
+  "label": "Woven Web"
+ },
+ {
+  "input": "https://luma.com/calendar/cal-g7sUGOVfVGKb7eG",
+  "label": "Boulder Green Drinks"
+ }
+]
