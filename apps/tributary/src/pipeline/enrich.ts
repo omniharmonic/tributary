@@ -3,7 +3,7 @@
  * categories. Cached by source URL and by normalized address.
  */
 import { eq, sql } from 'drizzle-orm'
-import { categorize, geocodeBest, normalizeAddress, recoverImage } from '@tributary/connectors/enrich'
+import { categorize, geocodeBest, inFrontRange, normalizeAddress, recoverImage } from '@tributary/connectors/enrich'
 import { rehash, type NormalizedEvent } from '@tributary/event-model'
 import { config } from '../config.js'
 import { getDb } from '../db/index.js'
@@ -21,6 +21,29 @@ async function ogSeen(domain: string, url: string): Promise<number> {
     .where(sql`${pageCache.meta}->>'imageUrl' = ${url} and ${pageCache.url} like ${'%' + domain + '%'}`)
   return Number(rows[0]?.n ?? 0)
 }
+
+/**
+ * Correct a zone label the feed got wrong, for an event we can see is local.
+ *
+ * Localist serves `X-WR-TIMEZONE:Eastern Time (US & Canada)` on CU Boulder's feeds while
+ * writing every DTSTART in UTC. The instants are right, so nothing needs moving, but the
+ * label rode along and a December concert at Macky Auditorium read "9:30 PM EST" to
+ * everyone in Boulder. `startsAt` carries an offset and not a zone, so this label is what
+ * the card renders.
+ *
+ * This only ever relabels: `instant` is returned untouched, so an event cannot move by
+ * being enriched. It applies only once the event is pinned inside the region, where its
+ * local time is the region's by definition. All-day events are left alone, because for
+ * them the zone decides which date is shown, and virtual events are left alone because
+ * they have no local time to be wrong about.
+ */
+export function localizeZone(e: NormalizedEvent, regionTz: string): NormalizedEvent {
+  if (e.mode === 'virtual' || e.start.allDay || e.start.tz === regionTz) return e
+  const l = e.locations[0]
+  if (l?.lat === undefined || l.lon === undefined || !inFrontRange(l.lat, l.lon)) return e
+  return { ...e, start: { ...e.start, tz: regionTz, tzInferred: true } }
+}
+
 
 export interface EnrichOptions {
   /** Skip page fetches (preview mode fetches at most this many pages). */
@@ -120,6 +143,8 @@ export async function enrich(events: NormalizedEvent[], opts: EnrichOptions = {}
         // A bare locality still helps the region filter even with no coordinates.
         if (!e.locations[0]!.locality && /boulder/i.test(text || '')) e = { ...e, locations: [{ ...e.locations[0]!, locality: 'Boulder', region: 'CO' }, ...e.locations.slice(1)] }
       }
+
+      e = localizeZone(e, c.REGION_TZ)
 
       // Categories.
       if (!e.category) {
