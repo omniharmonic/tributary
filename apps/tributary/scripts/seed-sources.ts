@@ -27,6 +27,7 @@ import { storeAppPassword } from '../src/lib/hosts.js'
 import { inboundAddress } from '../src/db/schema.js'
 import { detect } from '../src/lib/preview.js'
 import { connectSource, SourceError } from '../src/lib/sources.js'
+import { ConnectorError } from '@tributary/connectors'
 import { recordAudit } from '../src/lib/audit.js'
 
 interface Seed {
@@ -84,6 +85,35 @@ async function ensureCuratorHost(label: string): Promise<typeof host.$inferSelec
   return row!
 }
 
+/**
+ * A batch of sixty calendars will meet a transient 503 or a dropped connection, and
+ * losing a 191-event source to one bad second is a poor trade when the whole run takes
+ * an hour. Retryable failures get two more goes; anything the source is telling us on
+ * purpose (gone, forbidden, unparseable) is taken at its word and not hammered.
+ */
+const RETRY_DELAYS_MS = [5_000, 15_000]
+
+function worthRetrying(err: unknown): boolean {
+  if (err instanceof ConnectorError) return err.retryable
+  if (err instanceof SourceError) return false
+  // An unrecognised failure is usually the network rather than the calendar.
+  return err instanceof Error
+}
+
+async function withRetry<T>(label: string, fn: () => Promise<T>): Promise<T> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await fn()
+    } catch (err) {
+      if (attempt >= RETRY_DELAYS_MS.length || !worthRetrying(err)) throw err
+      const wait = RETRY_DELAYS_MS[attempt]!
+      const why = err instanceof Error ? err.message : 'unknown'
+      console.log(`RETRY ${label}\n      ${why} \u2014 trying again in ${wait / 1000}s`)
+      await new Promise((r) => setTimeout(r, wait))
+    }
+  }
+}
+
 async function main(): Promise<void> {
   const opts = args()
 
@@ -116,7 +146,7 @@ async function main(): Promise<void> {
   for (const seed of seeds) {
     const line = seed.label ? `${seed.label} <${seed.input}>` : seed.input
     try {
-      const matches = await detect({ text: seed.input })
+      const matches = await withRetry(line, () => detect({ text: seed.input }))
       const m = matches.find((x) => x.confidence > 0 && x.type !== 'extract')
       if (!m) {
         console.log(`SKIP  ${line}\n      ${matches[0]?.note ?? 'nothing importable found there'}`)
@@ -127,7 +157,7 @@ async function main(): Promise<void> {
         console.log(`DRY   ${line}\n      → ${m.type} (${m.platform}) ${m.label}`)
         continue
       }
-      const { source: row, created } = await connectSource(curator, { type: m.type, platform: m.platform, match: m, defaultVisibility: 'public', label: seed.label })
+      const { source: row, created } = await withRetry(line, () => connectSource(curator, { type: m.type, platform: m.platform, match: m, defaultVisibility: 'public', label: seed.label }))
       // `connectSource` already enqueues the first sync, which runs inline when the job
       // runner is off. Counting from the ledger avoids reporting a second, no-op run.
       if (!created) {
