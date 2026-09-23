@@ -10,6 +10,7 @@ import {
   geocode,
   geocodeBest,
   geocodableQuery,
+  geocodeCensus,
   inFrontRange,
   matchVenue,
   normalizeVenueText,
@@ -29,7 +30,7 @@ function photon(features: unknown[], calls: string[] = []): HttpClient {
 
 const feature = (lat: number, lon: number, props: Record<string, unknown> = {}) => ({ geometry: { coordinates: [lon, lat] }, properties: props })
 
-const OPTS = { photonUrl: 'http://photon:2322' }
+const OPTS = { photonUrl: 'http://photon:2322', noCensus: true }
 
 describe('the gazetteer', () => {
   it('covers Boulder County at a useful size', () => {
@@ -267,5 +268,43 @@ describe('geocodeBest', () => {
   it('answers from the gazetteer even with no Photon configured', async () => {
     const best = await geocodeBest('eTown Hall', { http: photon([]) })
     expect(best).toMatchObject({ via: 'venue', result: { lat: 40.0195, lon: -105.2774 } })
+  })
+})
+
+describe('the US Census geocoder', () => {
+  const body = {
+    result: {
+      addressMatches: [
+        { matchedAddress: '2590 WALNUT ST, BOULDER, CO, 80302', coordinates: { x: -105.260848, y: 40.019995 }, addressComponents: { city: 'BOULDER', state: 'CO', zip: '80302' } },
+      ],
+    },
+  }
+  const http = (json: unknown, status = 200) =>
+    ({
+      get: async () => {
+        const text = JSON.stringify(json)
+        return { url: 'x', status, headers: {}, body: Buffer.from(text), text: () => text, contentType: 'application/json', notModified: false }
+      },
+      head: async () => { throw new Error('no') },
+      getPage: async () => { throw new Error('no') },
+    }) as never
+
+  it('returns a house-level result with a title-cased locality', async () => {
+    const r = await geocodeCensus('2590 Walnut St, Boulder, CO', { http: http(body) })
+    expect(r).toMatchObject({ lat: 40.019995, lon: -105.260848, precision: 'exact', locality: 'Boulder', region: 'CO', postalCode: '80302', country: 'US' })
+  })
+  it('rejects a match outside the Front Range', async () => {
+    const far = { result: { addressMatches: [{ coordinates: { x: -74.006, y: 40.7128 } }] } }
+    expect(await geocodeCensus('350 5th Ave, New York, NY', { http: http(far) })).toBeUndefined()
+  })
+  it('is quiet about an empty answer or a bad status', async () => {
+    expect(await geocodeCensus('nowhere', { http: http({ result: { addressMatches: [] } }) })).toBeUndefined()
+    expect(await geocodeCensus('x', { http: http({}, 500) })).toBeUndefined()
+    expect(await geocodeCensus('', { http: http(body) })).toBeUndefined()
+  })
+  it('geocodeBest uses it before Photon and reports via address', async () => {
+    const r = await geocodeBest('2590 Walnut St, Boulder, CO 80302', { http: http(body) })
+    expect(r?.via).toBe('address')
+    expect(r?.result.precision).toBe('exact')
   })
 })

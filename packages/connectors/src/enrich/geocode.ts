@@ -101,6 +101,61 @@ export interface GeocodeOptions {
   photonUrl?: string
   http: HttpClient
   bias?: { lat: number; lon: number }
+  /**
+   * Skip the US Census geocoder. It is on by default because it needs no key, no
+   * container and no import, and it is authoritative for US street addresses, which is
+   * every address a Boulder calendar carries.
+   */
+  noCensus?: boolean
+}
+
+/* ── the US Census geocoder ──────────────────────────────────────────────────
+ * Free, keyless, run by the Census Bureau, and house-level accurate for US street
+ * addresses. It only answers for a parsed street address: it knows nothing about venue
+ * names, so the gazetteer runs first and Photon remains the fallback for everything
+ * that is neither a known venue nor a clean address.
+ */
+const CENSUS_URL = 'https://geocoding.geo.census.gov/geocoder/locations/onelineaddress'
+
+interface CensusMatch {
+  matchedAddress?: string
+  coordinates?: { x?: number; y?: number }
+  addressComponents?: { city?: string; state?: string; zip?: string }
+}
+
+export async function geocodeCensus(address: string, opts: Pick<GeocodeOptions, 'http'>): Promise<GeocodeResult | undefined> {
+  const q = address.trim()
+  if (!q) return undefined
+  const url = new URL(CENSUS_URL)
+  url.searchParams.set('address', q)
+  url.searchParams.set('benchmark', 'Public_AR_Current')
+  url.searchParams.set('format', 'json')
+  try {
+    const res = await opts.http.get(url.toString(), { headers: { accept: 'application/json' }, timeoutMs: 10_000 })
+    if (res.status !== 200) return undefined
+    const json = JSON.parse(res.text()) as { result?: { addressMatches?: CensusMatch[] } }
+    const m = json.result?.addressMatches?.[0]
+    const lat = m?.coordinates?.y
+    const lon = m?.coordinates?.x
+    if (typeof lat !== 'number' || typeof lon !== 'number' || !inFrontRange(lat, lon)) return undefined
+    const c = m?.addressComponents
+    return {
+      lat: Number(lat.toFixed(6)),
+      lon: Number(lon.toFixed(6)),
+      // The Census only ever matches a rooftop or an interpolated street number.
+      precision: 'exact',
+      locality: c?.city ? titleCase(c.city) : undefined,
+      region: c?.state,
+      postalCode: c?.zip,
+      country: 'US',
+    }
+  } catch {
+    return undefined
+  }
+}
+
+function titleCase(s: string): string {
+  return s.toLowerCase().replace(/\b[a-z]/g, (m) => m.toUpperCase())
 }
 
 /** One Photon query. Never throws; `undefined` covers "no Photon", "no hit" and "out of area". */
@@ -166,6 +221,9 @@ export async function geocodeBest(text: string | undefined | null, opts: Geocode
   const parsed = parseAddressLine(raw)
   const query = parsed ? geocodableQuery(parsed) : undefined
   if (query) {
+    // The Census first: no key, no container, and it is the authority for US addresses.
+    const census = opts.noCensus ? undefined : await geocodeCensus(query, opts)
+    if (census) return { result: { ...census, locality: census.locality ?? parsed?.locality, region: census.region ?? parsed?.region, postalCode: census.postalCode ?? parsed?.postalCode }, via: 'address' }
     const hit = await geocode(query, opts)
     if (hit) return { result: { ...hit, locality: hit.locality ?? parsed?.locality, region: hit.region ?? parsed?.region, postalCode: hit.postalCode ?? parsed?.postalCode }, via: 'address' }
   }

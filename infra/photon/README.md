@@ -1,4 +1,17 @@
-# Photon: self-hosted geocoding
+# Photon (optional)
+
+**Geocoding already works without this.** Place resolution runs in three steps and the
+first two need no service at all:
+
+1. the built-in Boulder County gazetteer, 159 venues with hand-checked coordinates;
+2. the US Census geocoder, which is free, needs no key, and is authoritative for US
+   street addresses, which is every address a Boulder calendar carries;
+3. Photon, for anything that is neither a known venue nor a clean US address.
+
+So run Photon only if step 3 turns out to matter for your region. It is a real
+commitment: the index is built from an OSM extract through Nominatim, which wants hours
+and tens of gigabytes. Check the actual size of the extract you plan to import before
+pulling it; this box has about 55 GB free.
 
 Turns a street address into coordinates so an event gets a map pin and answers the region filter. Public Nominatim forbids this kind of use, so we run our own or do without.
 
