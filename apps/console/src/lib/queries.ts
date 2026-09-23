@@ -4,7 +4,7 @@ import { ApiError } from './errors'
 import { setActingHost, useActingHostId } from './acting'
 import type { ManagedHost, Me, PublicConfig } from './types'
 
-const FALLBACK_CONFIG: PublicConfig = { region: { slug: 'boulder', name: 'Boulder', tz: 'America/Denver' }, handleDomain: 'freeskool.directory', brand: 'Boulder Directory', adapterName: 'Tributary' }
+const FALLBACK_CONFIG: PublicConfig = { region: { slug: 'boulder', name: 'Boulder', tz: 'America/Denver' }, handleDomain: 'boulderevents.directory', brand: 'Boulder Events Directory', adapterName: 'Tributary' }
 
 export function useConfig(): PublicConfig {
   const q = useQuery({ queryKey: ['config'], queryFn: () => api.publicConfig(), staleTime: Infinity, retry: 1 })

@@ -19,6 +19,7 @@ import { reportRoutes, stewardRoutes } from './routes/moderation.js'
 import { telegramInbound, telegramMeRoutes } from './routes/telegram.js'
 import { oneBoxRoutes, publicRoutes } from './routes/public.js'
 import { sourceRoutes } from './routes/sources.js'
+import { internalRoutes } from './routes/internal.js'
 import { inboundEmailRoutes, v1Routes, webhookRoutes } from './routes/v1.js'
 
 export function createApp(): Hono<{ Variables: Vars }> {
@@ -78,6 +79,8 @@ export function createApp(): Hono<{ Variables: Vars }> {
   api.notFound((ctx) => ctx.json({ error: 'NotFound', message: 'Not found.' }, 404))
   app.route('/api', api)
   app.route('/', oauthRoot)
+  // Container-local only: Caddy's on-demand TLS ask. Never routed from a public host.
+  app.route('/internal', internalRoutes)
 
   if (c.CONSOLE_DIST && existsSync(c.CONSOLE_DIST)) {
     const root = path.relative(process.cwd(), c.CONSOLE_DIST) || '.'

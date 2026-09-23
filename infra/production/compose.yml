@@ -1,18 +1,20 @@
-# Tributary production stack, beside Free School on the same Hetzner box.
+# Boulder Events Directory, running on Tributary. One Hetzner box, beside Free School.
 #
 #   docker compose --env-file infra/production/.env -f infra/production/compose.yml up -d --build
 #
-# Nothing here publishes a port. Free School's Caddy (`production-web-1`) is the one edge
-# on the box; this stack joins its compose network (`production_default`) so Caddy can
-# reverse-proxy `tributary:4100`. The PDS is Free School's (`pds.freeskool.directory`),
-# reached over the public hostname like any client would.
+# Nothing here publishes a port. Free School's Caddy (`production-web-1`) is the one edge on
+# the box; this stack joins its compose network (`production_default`) so Caddy can reverse
+# proxy `tributary:4100` and `directory-pds:3000`.
 #
-# The explicit project name matters: Free School's compose file also lives in a directory
-# called `production`, and two projects with one name share containers and volumes.
+# Two naming rules matter, both learned the hard way:
+#   - the project name is explicit (`tributary`), because Free School's compose file also
+#     lives in a directory called `production` and two projects with one name share
+#     containers and volumes;
+#   - every service that joins the shared `edge` network has a name nothing on that network
+#     already uses. `postgres` and `pds` both resolve to Free School's containers there, so
+#     ours are `db` and `directory-pds`.
 name: tributary
 services:
-  # Named `db`, not `postgres`: tributary and gate also sit on Free School's network,
-  # where `postgres` resolves to Free School's database.
   db:
     image: postgres:16-alpine
     restart: unless-stopped
@@ -27,6 +29,45 @@ services:
       interval: 5s
       timeout: 5s
       retries: 12
+
+  # The Directory's own PDS: custodial host accounts live here, under
+  # `<label>.${PDS_HANDLE_DOMAIN}`. Deliberately separate from Free School's PDS so the
+  # directory can be handed to a Boulder steward as a clean transfer, and so its relay
+  # account budget is its own (architecture §8, plan decision 2).
+  directory-pds:
+    image: ghcr.io/bluesky-social/pds:0.4
+    restart: unless-stopped
+    environment:
+      PDS_HOSTNAME: ${PDS_HOST:?Set PDS_HOST}
+      PDS_SERVICE_HANDLE_DOMAINS: .${PDS_HANDLE_DOMAIN:?Set PDS_HANDLE_DOMAIN}
+      PDS_JWT_SECRET: ${PDS_JWT_SECRET:?Set PDS_JWT_SECRET}
+      PDS_ADMIN_PASSWORD: ${PDS_ADMIN_PASSWORD:?Set PDS_ADMIN_PASSWORD}
+      PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX: ${PDS_PLC_ROTATION_KEY_K256_PRIVATE_KEY_HEX:?Set the rotation key}
+      PDS_DATA_DIRECTORY: /pds
+      PDS_BLOBSTORE_DISK_LOCATION: /pds/blocks
+      PDS_BLOB_UPLOAD_LIMIT: '52428800'
+      PDS_DID_PLC_URL: https://plc.directory
+      PDS_BSKY_APP_VIEW_URL: https://api.bsky.app
+      PDS_BSKY_APP_VIEW_DID: did:web:api.bsky.app
+      PDS_REPORT_SERVICE_URL: https://mod.bsky.app
+      PDS_REPORT_SERVICE_DID: did:plc:ar7c4by46qjdydhdevvrndac
+      # Announce to the relay so published events are visible network-wide. Empty keeps
+      # the PDS off the firehose; turning it on is a one-way door in practice.
+      PDS_CRAWLERS: ${PDS_CRAWLERS:-}
+      # Only Tributary mints accounts, through admin invite codes.
+      PDS_INVITE_REQUIRED: 'true'
+      PDS_EMAIL_SMTP_URL: ${SMTP_URL:?Set SMTP_URL}
+      PDS_EMAIL_FROM_ADDRESS: ${PDS_EMAIL_FROM:?Set PDS_EMAIL_FROM}
+      LOG_ENABLED: 'true'
+      PDS_PORT: '3000'
+    volumes:
+      - pds:/pds
+    healthcheck:
+      test: [CMD, wget, -qO-, 'http://localhost:3000/xrpc/_health']
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    networks: [default, edge]
 
   gate:
     build:
@@ -65,11 +106,20 @@ services:
       TRIBUTARY_PORT: '4100'
       DATABASE_URL: postgres://tributary:${POSTGRES_PASSWORD}@db:5432/tributary
       WEB_PUBLIC_URL: https://${TRIBUTARY_HOST:?Set TRIBUTARY_HOST}
+      # The PDS as the world sees it, so DID documents, sessions and handle resolution
+      # all agree on one origin.
+      PDS_URL: https://${PDS_HOST:?Set PDS_HOST}
+      # Reached directly for the TLS gate and health, without a round trip through Caddy.
+      PDS_INTERNAL_URL: http://directory-pds:3000
       GATE_URL: http://gate:4200
+      MEILI_URL: ${MEILI_URL:-}
+      PHOTON_URL: ${PHOTON_URL:-}
       CONSOLE_DIST: /app/apps/console/dist
       TRIBUTARY_VERSION: ${TRIBUTARY_VERSION:-dev}
     depends_on:
       db:
+        condition: service_healthy
+      directory-pds:
         condition: service_healthy
       gate:
         condition: service_started
@@ -84,6 +134,7 @@ services:
 
 volumes:
   postgres:
+  pds:
   gate_blobs:
 
 networks:

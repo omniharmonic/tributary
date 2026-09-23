@@ -1,29 +1,42 @@
-# Deploying Tributary
+# Deploying Boulder Events Directory
 
-Tributary runs as a sibling Docker Compose stack on the Free School Hetzner box, behind Free School's Caddy, using Free School's PDS as the Directory PDS.
+Boulder Events Directory runs on Tributary as a sibling Docker Compose stack on the Free School Hetzner box, behind Free School's Caddy, with its own domain and its own PDS.
 
 | | |
 |---|---|
 | Host | Hetzner Cloud `freeskool-1` (CX33, Falkenstein), `root@167.233.100.123`, key `~/.ssh/frontrange-twin` |
 | Checkout | `/opt/tributary` (branch `main`), env at `/opt/tributary/infra/production/.env` |
-| Console + API | `https://tributary.freeskool.directory` |
-| PDS | `https://pds.freeskool.directory` (Free School's); custodial handles `<label>.freeskool.directory` |
-| Edge | Free School's Caddy (`production-web-1`) proxies `TRIBUTARY_HOST` → `tributary:4100` over the `production_default` network |
+| Console + API | `https://boulderevents.directory` |
+| PDS | `https://pds.boulderevents.directory`, this stack's own `directory-pds` container; custodial handles `<label>.boulderevents.directory` |
+| Edge | Free School's Caddy (`production-web-1`) serves `BED_HOST`, `BED_PDS_HOST` and `*.BED_HANDLE_DOMAIN`, proxying to `tributary:4100` and `directory-pds:3000` over the `production_default` network |
 | Email | Resend over SMTP (same key as Free School), from `hello@freeskool.xyz` |
-| DNS | `*.freeskool.directory` A/AAAA → the box (already in place); `tributary.` resolves through the wildcard |
-| Backups | `infra/production/backup.sh` nightly (Postgres dump + Gate blobs), 14 days under `/var/backups/tributary`; the PDS is in Free School's backup |
+| DNS | `boulderevents.directory`: A/AAAA on `@`, `pds`, `www` and `*` → the box. Registered at Namecheap 2026-09-23 |
+| Backups | `infra/production/backup.sh` nightly: Postgres dump, Gate blobs, and the PDS volume (custodial repos and blobs), 14 days under `/var/backups/tributary` |
 
 ## Files
 
 - `Dockerfile` — `tributary` (API + workers + built console) and `gate` targets from one workspace layer
-- `infra/production/compose.yml` — postgres, gate, tributary; no published ports; joins Free School's network as `edge`
+- `infra/production/compose.yml` — `db`, `directory-pds`, `gate`, `tributary`; no published ports; joins Free School's network as `edge`. Service names avoid `postgres` and `pds`, which resolve to Free School's containers on that shared network
 - `infra/production/.env.example` — every variable and how to generate it
 - `infra/production/release.sh` — pull, back up, rebuild, recreate, verify health; tags rollback images
 - `infra/production/backup.sh`
 
-## Free School side (one-time, done 2026-09-21)
+## Free School side (the shared edge)
 
-Free School's `infra/production/Caddyfile` gained a `{$TRIBUTARY_HOST}` site block (on-demand TLS, proxied to `tributary:4100`) and a short-circuit in the on-demand `ask` gate; `compose.yml` passes `TRIBUTARY_HOST` to the `web` container; `TRIBUTARY_HOST=tributary.freeskool.directory` is set in `/opt/freeskool/infra/production/.env`. The labels `tributary`, `events`, `directory`, `gate` are reserved in Free School's handle list.
+Free School's Caddy is the only thing on the box holding ports 80 and 443, so it fronts this stack too. Its `infra/production/Caddyfile` carries three site blocks for us, all with on-demand TLS: `{$BED_HOST}` and `*.{$BED_HANDLE_DOMAIN}` to `tributary:4100`, `{$BED_PDS_HOST}` to `directory-pds:3000`, and on a handle host the two atproto paths (`/.well-known/atproto-did` and `/xrpc/*`) to the PDS ahead of the app. The old `{$TRIBUTARY_HOST}` now permanently redirects to `{$BED_HOST}`.
+
+The on-demand `ask` gate answers 200 outright for `BED_HOST` and `BED_PDS_HOST`, and sends anything under `BED_HANDLE_DOMAIN` to Tributary's own `/internal/tls-check`, which asks our PDS. Free School's AppView knows nothing about our handles and must not be asked. `BED_HOST`, `BED_PDS_HOST` and `BED_HANDLE_DOMAIN` live in `/opt/freeskool/infra/production/.env`.
+
+Validate a Caddyfile change before releasing it:
+
+```sh
+docker run --rm -e WEB_HOST=freeskool.xyz -e PDS_HOST=pds.freeskool.directory \
+  -e PDS_HANDLE_DOMAIN=freeskool.directory -e SCHOOL_DOMAIN_SUFFIX=freeskool.xyz \
+  -e BED_HOST=boulderevents.directory -e BED_PDS_HOST=pds.boulderevents.directory \
+  -e BED_HANDLE_DOMAIN=boulderevents.directory \
+  -v /opt/freeskool/infra/production/Caddyfile:/etc/caddy/Caddyfile:ro \
+  caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+```
 
 ## First deploy
 
@@ -37,7 +50,7 @@ $EDITOR infra/production/.env      # generators are in the comments; PDS_ADMIN_P
 C="docker compose --env-file infra/production/.env -f infra/production/compose.yml"
 $C config --quiet && $C build      # ~4 minutes the first time
 $C up -d
-curl -s https://tributary.freeskool.directory/api/public/health
+curl -s https://boulderevents.directory/api/public/health
 # {"status":"ok","checks":{"postgres":"ok","pds":"ok","gate":"ok"},"version":"…"}
 ```
 
@@ -57,16 +70,17 @@ Roll back with `git checkout <previous> && $C build && $C up -d`. A release that
 
 1. `/api/public/health` is `ok` with all three checks.
 2. Paste a public Google Calendar / Luma / Meetup link on `/add`; the preview shows real cards.
-3. Sign up with a real address; the magic link arrives from Resend; the source syncs; the records appear on `https://pds.freeskool.directory/xrpc/com.atproto.repo.listRecords?repo=<did>&collection=community.lexicon.calendar.event`.
+3. Sign up with a real address; the magic link arrives from Resend; the source syncs; the records appear on `https://pds.boulderevents.directory/xrpc/com.atproto.repo.listRecords?repo=<did>&collection=community.lexicon.calendar.event`.
 4. The public directory `/` lists the events; `/api/public/regions/boulder/calendar.ics` returns a feed.
-5. `https://<label>.freeskool.directory/.well-known/atproto-did` returns the DID for the minted handle.
+5. `https://<label>.boulderevents.directory/.well-known/atproto-did` returns the DID for the minted handle.
 
 ## Optional services
 
-- **Photon** (self-hosted geocoding): run `rtuszik/photon-docker` with a Colorado extract and set `PHOTON_URL=http://photon:2322`. Without it, the venue table geocodes the ~35 best-known Boulder venues and everything else publishes without coordinates.
+- **Photon** (self-hosted geocoding): see `infra/photon/`. Set `PHOTON_URL`. Without it the built-in Boulder County gazetteer still resolves known venues.
+- **Meilisearch**: see `infra/meili/`. Set `MEILI_URL` and `MEILI_MASTER_KEY`. Without them search falls back to a Postgres substring match.
 - **Extraction**: set `EXTRACT_MODEL_API_KEY` (Anthropic) to turn on flyers, free text, unstructured pages and email extraction. Off by default; the console says so.
 - **Google Calendar API key**: `GOOGLE_API_KEY` enables the incremental `syncToken` path; without it public calendars are read as `basic.ics`.
-- **Inbound email**: a Cloudflare Email Worker on `in.freeskool.directory` posting to `/api/inbound/email` signed with `INBOUND_EMAIL_SECRET`. Not yet deployed.
+- **Inbound email**: a Cloudflare Email Worker on `in.boulderevents.directory` posting to `/api/inbound/email` signed with `INBOUND_EMAIL_SECRET`. Not yet deployed.
 
 ## The Spaces alpha lab
 

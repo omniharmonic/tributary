@@ -189,7 +189,7 @@ function previewFor(match: DetectMatch): Preview {
 export const mockApi: Api = {
   async publicConfig() {
     await delay(80)
-    return { region: { slug: 'boulder', name: 'Boulder', tz: TZ }, handleDomain: 'freeskool.directory', brand: 'Boulder Directory', adapterName: 'Tributary' }
+    return { region: { slug: 'boulder', name: 'Boulder', tz: TZ }, handleDomain: 'boulderevents.directory', brand: 'Boulder Events Directory', adapterName: 'Tributary' }
   },
   async publicEvents({ q, category }) {
     await delay()

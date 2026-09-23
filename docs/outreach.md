@@ -6,7 +6,7 @@ Plan §6 and §10 name two messages for week 0. Drafts below; facts reflect what
 
 Subject: An open events importer that writes atmo-shaped records, and a regional skin of atmo
 
-Hi — I'm Benjamin, from Techne in Boulder. We've built Tributary, an open adapter that publishes community events from wherever they already live (Google Calendar, Luma, Meetup, Eventbrite, WordPress, Squarespace, Localist, Mobilize, feeds, spreadsheets, flyers, email) as `community.lexicon.calendar.event` records in a repo the host owns. The records follow atmo's writer field for field — inline `media` with `role: thumbnail` and `aspect_ratio`, `timezone`, `preferences.showInDiscovery`, `additionalData.externalSource` with `rsvpMode: external_only` — so stock atmo.rsvp renders them completely. Code: https://github.com/omniharmonic/tributary (AGPL for the service, MIT for the event model and connector SDK). It's live for Boulder at https://tributary.freeskool.directory.
+Hi — I'm Benjamin, from Techne in Boulder. We've built Tributary, an open adapter that publishes community events from wherever they already live (Google Calendar, Luma, Meetup, Eventbrite, WordPress, Squarespace, Localist, Mobilize, feeds, spreadsheets, flyers, email) as `community.lexicon.calendar.event` records in a repo the host owns. The records follow atmo's writer field for field — inline `media` with `role: thumbnail` and `aspect_ratio`, `timezone`, `preferences.showInDiscovery`, `additionalData.externalSource` with `rsvpMode: external_only` — so stock atmo.rsvp renders them completely. Code: https://github.com/omniharmonic/tributary (AGPL for the service, MIT for the event model and connector SDK). It's live for Boulder at https://boulderevents.directory.
 
 Two things we'd like to do with, not around, you:
 
@@ -25,4 +25,4 @@ Two apps (atmo.rsvp and Tributary, an importer that publishes events from existi
 - `media` (array of `{ role, alt?, content: blob, aspect_ratio? }`): a cover image. atmo writes `role: "thumbnail"`; a lexicon-level shape would let readers stop guessing.
 - an external-source object (`additionalData.externalSource` today: `platform`, `url`, `rsvpMode`, `externalId`, `method`, `syncedAt`): where an event came from and where RSVP happens. Every importer (discal.dev, OpenMeet, mobilizon-reshare, ours) invents its own version.
 
-Live records showing all three are on `pds.freeskool.directory` (any repo with `createdWith: https://tributary.freeskool.directory`). We'd also like to hear how the community feels about `preferences.showInDiscovery`, which atmo honours and we use for unlisted events.
+Live records showing all three are on `pds.freeskool.directory` (any repo with `createdWith: https://boulderevents.directory`). We'd also like to hear how the community feels about `preferences.showInDiscovery`, which atmo honours and we use for unlisted events.

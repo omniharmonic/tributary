@@ -2,7 +2,7 @@
 
 An open adapter that publishes community events from wherever they already live — feeds, pages, files, spreadsheets, email, flyers, text, chat, API — to AT Protocol as `community.lexicon.calendar.event` records in a repo the host owns, kept in sync. With a regional identity layer (custodial accounts on a community PDS, or sign in with your own) and a permission layer (the Gate) that gives every event one of six visibility levels.
 
-Live: **https://tributary.freeskool.directory** (Boulder). Status against the plan: `docs/status.md`. API: `docs/api.md`. Deploying: `docs/deployment.md`. Working documents: `.claude/`.
+Live: **https://boulderevents.directory** (Boulder). Status against the plan: `docs/status.md`. API: `docs/api.md`. Deploying: `docs/deployment.md`. Working documents: `.claude/`.
 
 ## What a host does
 

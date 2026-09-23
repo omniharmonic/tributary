@@ -1,6 +1,6 @@
 # Status against the plan (2026-09-21)
 
-Deployed: https://tributary.freeskool.directory (see `deployment.md`).
+Deployed: https://boulderevents.directory (see `deployment.md`).
 
 ## Functional requirements
 

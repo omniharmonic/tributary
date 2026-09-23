@@ -33,7 +33,8 @@ publicRoutes.get('/health', async (c) => {
     checks.postgres = 'down'
   }
   try {
-    const r = await fetch(`${config().PDS_URL.replace(/\/$/, '')}/xrpc/_health`, { signal: AbortSignal.timeout(4000) })
+    const base = (config().PDS_INTERNAL_URL || config().PDS_URL).replace(/\/$/, '')
+    const r = await fetch(`${base}/xrpc/_health`, { signal: AbortSignal.timeout(4000) })
     checks.pds = r.ok ? 'ok' : 'down'
   } catch {
     checks.pds = 'down'

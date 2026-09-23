@@ -17,6 +17,8 @@ const schema = z.object({
 
   /** The Directory PDS (custodial accounts are minted here). */
   PDS_URL: z.string().url().default('http://localhost:3000'),
+  /** The PDS reached directly on the compose network, for health and the TLS gate. */
+  PDS_INTERNAL_URL: z.string().default(''),
   PDS_ADMIN_PASSWORD: z.string().default(''),
   /** Handle domain for custodial hosts, no leading dot. */
   PDS_HANDLE_DOMAIN: z.string().default('test'),
@@ -28,7 +30,7 @@ const schema = z.object({
   REGION_NAME: z.string().default('Boulder'),
   REGION_TZ: z.string().default('America/Denver'),
   REGION_COUNTRY: z.string().default('US'),
-  BRAND_NAME: z.string().default('Boulder Directory'),
+  BRAND_NAME: z.string().default('Boulder Events Directory'),
   ADAPTER_NAME: z.string().default('Tributary'),
 
   /** The Gate. */
@@ -45,6 +47,10 @@ const schema = z.object({
   TELEGRAM_WEBHOOK_SECRET: z.string().default(''),
   STEWARD_KEY: z.string().default(''),
   OAUTH_PRIVATE_JWK: z.string().default(''),
+
+  /** Search. Empty = the Postgres substring fallback. */
+  MEILI_URL: z.string().default(''),
+  MEILI_MASTER_KEY: z.string().default(''),
 
   /** Enrichment. */
   GOOGLE_API_KEY: z.string().default(''),
