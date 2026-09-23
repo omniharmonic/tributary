@@ -4,7 +4,7 @@
  * members, invite or held events; a gated event appears as its teaser only.
  */
 import { Hono } from 'hono'
-import { and, desc, eq, gte, inArray, lte, sql } from 'drizzle-orm'
+import { and, desc, eq, gte, inArray, lte, sql, type SQL } from 'drizzle-orm'
 import { groupDuplicates, toCard, type NormalizedEvent } from '@tributary/event-model'
 import { config } from '../../config.js'
 import { getDb, getPool } from '../../db/index.js'
@@ -132,13 +132,44 @@ publicRoutes.get('/events', async (c) => {
   const category = c.req.query('category')
   const q = c.req.query('q')?.trim().toLowerCase()
   const limit = Math.min(Number(c.req.query('limit') ?? 200), 500)
-  const rows = await getDb()
-    .select({ e: sourceEvent, h: host })
-    .from(sourceEvent)
-    .innerJoin(host, eq(host.id, sourceEvent.hostId))
-    .where(and(eq(host.region, region), inArray(sourceEvent.state, ['live', 'cancelled']), inArray(sourceEvent.visibility, PUBLIC_VIS), gte(sourceEvent.startsAt, from), lte(sourceEvent.startsAt, to)))
-    .orderBy(sourceEvent.startsAt)
-    .limit(limit)
+
+  // Postgres always re-asserts region, state and visibility, whatever the index said, so
+  // a bug in the indexing path can never widen what a stranger sees.
+  const guards = [eq(host.region, region), inArray(sourceEvent.state, ['live', 'cancelled']), inArray(sourceEvent.visibility, PUBLIC_VIS)] as const
+  const fetchRows = (extra: SQL | undefined, ordered: boolean) => {
+    const query = getDb()
+      .select({ e: sourceEvent, h: host })
+      .from(sourceEvent)
+      .innerJoin(host, eq(host.id, sourceEvent.hostId))
+      .where(and(...guards, ...(extra ? [extra] : [])))
+    return ordered ? query.orderBy(sourceEvent.startsAt).limit(limit) : query.limit(limit)
+  }
+
+  // Ranking must drive the fetch, not filter it. Selecting a chronological page and then
+  // intersecting it with the hits throws away every match that falls later than the page
+  // reaches, so on a directory of any size a search for a real word returns almost
+  // nothing. Ask the index first, then read exactly those rows.
+  let rows: Awaited<ReturnType<typeof fetchRows>>
+  let rank: Map<string, number> | undefined
+  if (q) {
+    const found = await searchEvents({ q, region, category, from, to, limit })
+    if (found.available) {
+      const ids = found.hits.map((h) => h.id)
+      rank = new Map(ids.map((id, i) => [id, i]))
+      rows = ids.length === 0 ? [] : await fetchRows(inArray(sourceEvent.id, ids), false)
+    } else {
+      // The index is down. Fall back to a substring scan of the chronological page
+      // rather than showing an empty directory.
+      const all = await fetchRows(and(gte(sourceEvent.startsAt, from), lte(sourceEvent.startsAt, to)), true)
+      rows = all.filter(({ e, h }) => {
+        const p = publicCard(e, h)
+        return `${p.card.name} ${p.card.place ?? ''} ${p.card.excerpt ?? ''} ${p.host.displayName}`.toLowerCase().includes(q)
+      })
+    }
+  } else {
+    rows = await fetchRows(and(gte(sourceEvent.startsAt, from), lte(sourceEvent.startsAt, to)), true)
+  }
+
   // Group duplicates on the card's own fields, then carry the winner's whole event through.
   const byKey = new Map(rows.map(({ e, h }) => [e.id, publicCard(e, h)]))
   const grouped = groupDuplicates(
@@ -149,19 +180,9 @@ publicRoutes.get('/events', async (c) => {
   )
   // `key` is the ledger id: keep it beside the event so the search ranking can join on it.
   let cards = grouped.map((g) => ({ id: g.key, event: { ...byKey.get(g.key)!, alsoOn: g.alsoOn } }))
-  if (category) cards = cards.filter((x) => x.event.card.category === category || x.event.card.tags.includes(category))
-  if (q) {
-    // Meilisearch ranks; Postgres holds the truth. When the index is unavailable we fall
-    // back to a substring match rather than showing nothing.
-    const found = await searchEvents({ q, region, category, from, to, limit })
-    if (found.available) {
-      const rank = new Map(found.hits.map((h, i) => [h.id, i]))
-      cards = cards.filter((x) => rank.has(x.id)).sort((a, b) => (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0))
-    } else {
-      const needle = q.toLowerCase()
-      cards = cards.filter((x) => `${x.event.card.name} ${x.event.card.place ?? ''} ${x.event.card.excerpt ?? ''} ${x.event.host.displayName}`.toLowerCase().includes(needle))
-    }
-  }
+  // The index already applied the category for a search; this covers the browse path.
+  if (category && !rank) cards = cards.filter((x) => x.event.card.category === category || x.event.card.tags.includes(category))
+  if (rank) cards.sort((a, b) => (rank.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (rank.get(b.id) ?? Number.MAX_SAFE_INTEGER))
   c.header('Cache-Control', 'public, max-age=60')
   return c.json({ events: cards.map((x) => x.event), cursor: null })
 })
