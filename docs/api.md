@@ -191,8 +191,16 @@ A signed-in viewer asks for a place on a gated event → `{ state }`.
 
 ## Public, read-only (the discovery view served by the console)
 
-### `GET /api/public/events?region=boulder&from=&to=&category=&q=&cursor=`
+### `GET /api/public/events?region=boulder&from=&to=&category=&q=&near=&radiusKm=&cursor=`
 Public (and only public) events from every host in the region, each as `{ card: EventCard, host: { did, handle, displayName, provenanceLevel }, did, rkey, atUri, audienceName, alsoOn: [{ platform, sourceUrl, key }] }`. `alsoOn` names the other sources carrying the same event (F18). `Cache-Control: public, max-age=60`. Never returns unlisted, gated details, members, invite or held events.
+
+`q` searches names, places, descriptions and host names through Meilisearch, with typo tolerance and Boulder synonyms, and comes back ranked. The index chooses the rows; Postgres then re-asserts region, state and visibility on the fetch, so a fault in the indexing path can never widen what a stranger sees. If search is unavailable the same request degrades to a substring scan rather than an empty page.
+
+`near=lat,lon` limits results to a radius, `radiusKm` sets it (default 25, bounded 0.1 to 200). A malformed pair is ignored rather than rejected, so the request simply browses. Only public events carry coordinates in the index, so a radius can never surface an address a gated event is withholding. A radius with no `q` is browsing, so those results stay in start-time order rather than by relevance.
+
+```
+GET /api/public/events?near=40.0150,-105.2705&radiusKm=5&q=music
+```
 
 ### `GET /api/public/events/:did/:rkey`
 One public event (or `404`, byte-identical for not-found and not-permitted).
