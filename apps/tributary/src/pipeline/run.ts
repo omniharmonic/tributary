@@ -351,10 +351,10 @@ export async function runSource(sourceId: string, opts: { trigger?: 'schedule' |
 
     const rows = await db.select().from(sourceEvent).where(eq(sourceEvent.sourceId, s.id))
     const byId = new Map(rows.map((r) => [r.id, r]))
-    const byKey = new Map(rows.map((r) => [`${r.externalId} ${r.occurrence}`, r]))
+    const byKey = new Map(rows.map((r) => [`${r.externalId}\u0000${r.occurrence}`, r]))
     const rules = await loadRules(s.id)
     const classified = enriched.map((e) => {
-      const row = byKey.get(`${e.identity.externalId} ${e.identity.occurrence ?? ''}`)
+      const row = byKey.get(`${e.identity.externalId}\u0000${e.identity.occurrence ?? ''}`)
       const cls = classify(e, { sourceDefault: s.defaultVisibility as Visibility, sourceAudience: (s.audience as never) ?? undefined, sourceMappedToSpace: !!s.audience, rules, override: (row?.override as never) ?? null, calendarName: String((s.config as { title?: string }).title ?? '') })
       return applyClassification(e, cls)
     })
