@@ -101,11 +101,27 @@ export function imageUrlFor(row: { atUri: string | null; blob: unknown; imageHas
   return n.image?.url
 }
 
-export function publicCard(row: typeof sourceEvent.$inferSelect, h: typeof host.$inferSelect) {
+export interface PublicEvent {
+  card: ReturnType<typeof toCard>
+  host: { did: string; handle: string; displayName: string; provenanceLevel: string }
+  did: string
+  rkey: string | null
+  atUri: string | null
+  audienceName: string | null
+}
+
+/** The shape the console reads: the card, plus where it lives and who published it. */
+export function publicCard(row: typeof sourceEvent.$inferSelect, h: typeof host.$inferSelect): PublicEvent {
   const n = row.normalized as unknown as NormalizedEvent
   const card = toCard({ ...n, status: row.state === 'cancelled' ? 'cancelled' : n.status }, imageUrlFor(row))
-  const rkey = row.atUri?.split('/').pop() ?? null
-  return { ...card, id: row.id, did: h.did, rkey, atUri: row.atUri, host: { did: h.did, handle: h.handle, displayName: h.displayName, provenanceLevel: h.provenanceLevel }, audienceName: null }
+  return {
+    card,
+    host: { did: h.did, handle: h.handle, displayName: h.displayName, provenanceLevel: h.provenanceLevel },
+    did: h.did,
+    rkey: row.atUri?.split('/').pop() ?? null,
+    atUri: row.atUri,
+    audienceName: null,
+  }
 }
 
 publicRoutes.get('/events', async (c) => {
@@ -123,23 +139,31 @@ publicRoutes.get('/events', async (c) => {
     .where(and(eq(host.region, region), inArray(sourceEvent.state, ['live', 'cancelled']), inArray(sourceEvent.visibility, PUBLIC_VIS), gte(sourceEvent.startsAt, from), lte(sourceEvent.startsAt, to)))
     .orderBy(sourceEvent.startsAt)
     .limit(limit)
-  let cards = groupDuplicates(rows.map(({ e, h }) => ({ ...publicCard(e, h), rank: h.door === 'listed' ? 1 : 0, publishedAt: e.firstSeen.toISOString() }))).map(({ rank: _r, publishedAt: _p, ...card }) => card)
-  if (category) cards = cards.filter((x) => x.category === category || x.tags.includes(category))
+  // Group duplicates on the card's own fields, then carry the winner's whole event through.
+  const byKey = new Map(rows.map(({ e, h }) => [e.id, publicCard(e, h)]))
+  const grouped = groupDuplicates(
+    rows.map(({ e, h }) => {
+      const p = byKey.get(e.id)!
+      return { key: e.id, name: p.card.name, startsAt: p.card.startsAt, timezone: p.card.timezone, sourceUrl: p.card.sourceUrl, platform: p.card.platform, rank: h.door === 'listed' ? 1 : 0, publishedAt: e.firstSeen.toISOString() }
+    }),
+  )
+  // `key` is the ledger id: keep it beside the event so the search ranking can join on it.
+  let cards = grouped.map((g) => ({ id: g.key, event: { ...byKey.get(g.key)!, alsoOn: g.alsoOn } }))
+  if (category) cards = cards.filter((x) => x.event.card.category === category || x.event.card.tags.includes(category))
   if (q) {
     // Meilisearch ranks; Postgres holds the truth. When the index is unavailable we fall
     // back to a substring match rather than showing nothing.
     const found = await searchEvents({ q, region, category, from, to, limit })
     if (found.available) {
       const rank = new Map(found.hits.map((h, i) => [h.id, i]))
-      const byId = new Map(rows.map(({ e }) => [e.id, e.id]))
-      cards = cards.filter((x) => rank.has(x.id) && byId.has(x.id)).sort((a, b) => (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0))
+      cards = cards.filter((x) => rank.has(x.id)).sort((a, b) => (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0))
     } else {
       const needle = q.toLowerCase()
-      cards = cards.filter((x) => `${x.name} ${x.place ?? ''} ${x.excerpt ?? ''} ${x.host.displayName}`.toLowerCase().includes(needle))
+      cards = cards.filter((x) => `${x.event.card.name} ${x.event.card.place ?? ''} ${x.event.card.excerpt ?? ''} ${x.event.host.displayName}`.toLowerCase().includes(needle))
     }
   }
   c.header('Cache-Control', 'public, max-age=60')
-  return c.json({ events: cards, cursor: null })
+  return c.json({ events: cards.map((x) => x.event), cursor: null })
 })
 
 async function findPublicEvent(did: string, rkey: string) {
@@ -167,7 +191,7 @@ publicRoutes.get('/events/:did/:rkey', async (c) => {
     return c.body(icsFor([{ n, uid: `${rkey}@${new URL(config().WEB_PUBLIC_URL).hostname}`, cancelled: e.state === 'cancelled' }], n.name))
   }
   const viewer = c.get('host')
-  const card = publicCard(e, h)
+  const ev = publicCard(e, h)
   const coarse = n.visibility === 'gated' || (n.gatedFields ?? []).includes('exactLocation')
   const locations = n.locations.map((l) => (coarse && !l.private ? { name: l.locality, locality: l.locality, region: l.region, coarse: true } : coarse ? { locality: l.locality, region: l.region, coarse: true } : { name: l.name, street: l.street, locality: l.locality, region: l.region, coarse: false }))
   let revealed: Record<string, unknown> | null = null
@@ -178,7 +202,7 @@ publicRoutes.get('/events/:did/:rkey', async (c) => {
     requestState = g.requestState
   }
   c.header('Cache-Control', viewer ? 'private, no-store' : 'public, max-age=60')
-  return c.json({ ...card, descriptionMd: n.descriptionMd ?? null, locations, links: n.links, revealed, requestState, cancelled: e.state === 'cancelled' })
+  return c.json({ ...ev, descriptionMd: n.descriptionMd ?? null, locations, links: n.links, revealed, requestState, cancelled: e.state === 'cancelled' })
 })
 
 

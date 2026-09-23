@@ -192,7 +192,7 @@ A signed-in viewer asks for a place on a gated event → `{ state }`.
 ## Public, read-only (the discovery view served by the console)
 
 ### `GET /api/public/events?region=boulder&from=&to=&category=&q=&cursor=`
-Public (and only public) events from every host in the region, as `EventCard` plus `{ "host": { "did", "handle", "displayName", "provenanceLevel" } }`. `Cache-Control: public, max-age=60`. Never returns unlisted, gated details, members, invite or held events.
+Public (and only public) events from every host in the region, each as `{ card: EventCard, host: { did, handle, displayName, provenanceLevel }, did, rkey, atUri, audienceName, alsoOn: [{ platform, sourceUrl, key }] }`. `alsoOn` names the other sources carrying the same event (F18). `Cache-Control: public, max-age=60`. Never returns unlisted, gated details, members, invite or held events.
 
 ### `GET /api/public/events/:did/:rkey`
 One public event (or `404`, byte-identical for not-found and not-permitted).
