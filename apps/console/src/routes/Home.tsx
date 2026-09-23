@@ -2,7 +2,7 @@ import { Link, useNavigate, useSearch } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 import { api } from '../lib/api'
-import { BUCKET_LABEL, bucketFor, dayKey, dayParts, type Bucket } from '../lib/dates'
+import { BUCKET_LABEL, bucketFor, dayKey, dayParts, windowFor, type Bucket } from '../lib/dates'
 import { keys, useConfig, useMe } from '../lib/queries'
 import type { PublicEvent } from '../lib/types'
 import { EventCard } from '../components/EventCard'
@@ -17,7 +17,10 @@ export function HomeRoute() {
   const search = useSearch({ strict: false }) as { q?: string; category?: string; when?: Bucket }
   const navigate = useNavigate()
   const [q, setQ] = useState(search.q ?? '')
-  const params = { region: cfg.region.slug, q: search.q, category: search.category }
+  // A chosen chip fetches its own window; the unfiltered page keeps asking for the
+  // soonest events, which is what "this week" should show.
+  const win = search.when ? windowFor(search.when, cfg.region.tz) : undefined
+  const params = { region: cfg.region.slug, q: search.q, category: search.category, from: win?.from, to: win?.to }
   const query = useQuery({ queryKey: keys.publicEvents(params), queryFn: () => api.publicEvents(params) })
 
   const grouped = useMemo(() => groupByBucket(query.data?.events ?? [], cfg.region.tz), [query.data, cfg.region.tz])

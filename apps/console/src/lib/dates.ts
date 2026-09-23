@@ -22,6 +22,37 @@ export function bucketFor(startsAt: string, tz: string, now = DateTime.now()): B
   return 'later'
 }
 
+/**
+ * The server window a bucket needs, as ISO instants.
+ *
+ * The page asks for one chronological page and sorts it into buckets in the browser.
+ * That was fine when the directory held a few dozen events; at a thousand the page fills
+ * with the next five days and "Later" is empty not because nothing is planned but
+ * because the rows never arrived. So a chosen chip fetches its own window.
+ *
+ * These must stay a superset of what `bucketFor` assigns, or the section would request
+ * rows and then drop them. `bucketFor` tests `tonight` first, so on a Saturday the
+ * weekend window still yields only Sunday, which is what the reader sees either way.
+ */
+export function windowFor(bucket: Bucket, tz: string, now = DateTime.now()): { from: string; to: string } {
+  const n = now.setZone(tz)
+  const iso = (d: DateTime) => d.toUTC().toISO() ?? ''
+  // Something that began within the last three hours is still on.
+  const onNow = n.minus({ hours: 3 })
+  switch (bucket) {
+    case 'tonight':
+      return { from: iso(onNow), to: iso(n.endOf('day')) }
+    case 'weekend': {
+      const sat = n.startOf('week').plus({ days: 5 }).startOf('day')
+      return { from: iso(sat < onNow ? onNow : sat), to: iso(n.endOf('week')) }
+    }
+    case 'week':
+      return { from: iso(onNow), to: iso(n.endOf('week')) }
+    case 'later':
+      return { from: iso(n.endOf('week')), to: iso(n.endOf('week').plus({ days: 120 })) }
+  }
+}
+
 export function dayKey(startsAt: string, tz: string): string {
   return DateTime.fromISO(startsAt, { zone: 'utc' }).setZone(tz).toISODate() ?? ''
 }
