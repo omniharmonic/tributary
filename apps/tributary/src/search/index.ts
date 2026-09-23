@@ -23,7 +23,7 @@ import { UNAVAILABLE, type EventDoc, type IndexableHost, type IndexableRow, type
 
 export * from './types.js'
 export { isIndexable, toEventDoc, INDEXED_STATE, INDEXED_VISIBILITY } from './document.js'
-export { buildFilters, buildSearchParams, quote } from './query.js'
+export { buildFilters, buildSearchParams, parseNear, quote } from './query.js'
 export { indexSettings, INDEX_UID, PRIMARY_KEY, SYNONYMS } from './settings.js'
 export { MeiliSearchIndex, loadMeiliClient } from './meili.js'
 

@@ -52,3 +52,23 @@ export function buildSearchParams(query: SearchQuery, now = new Date()): Record<
     showRankingScore: hasQuery,
   }
 }
+
+/**
+ * `near=lat,lon` from a query string. Returns undefined for anything that is not a
+ * usable pair of degrees, so a malformed value browses normally instead of 500ing or,
+ * worse, being passed through to `_geoRadius` as NaN and quietly matching nothing.
+ */
+export function parseNear(raw: string | undefined): { lat: number; lon: number } | undefined {
+  if (!raw) return undefined
+  const parts = raw.split(',')
+  if (parts.length !== 2) return undefined
+  // Number('') is 0, not NaN, so an empty half would silently become the Gulf of Guinea
+  // and the visitor would be told there is nothing near them.
+  const [rawLat, rawLon] = parts.map((x) => x.trim())
+  if (!rawLat || !rawLon) return undefined
+  const lat = Number(rawLat)
+  const lon = Number(rawLon)
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return undefined
+  if (lat < -90 || lat > 90 || lon < -180 || lon > 180) return undefined
+  return { lat, lon }
+}

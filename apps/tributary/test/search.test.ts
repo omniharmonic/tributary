@@ -12,6 +12,7 @@ import {
   INDEX_UID,
   indexSettings,
   isIndexable,
+  parseNear,
   MeiliSearchIndex,
   NullSearchIndex,
   quote,
@@ -345,5 +346,23 @@ describe('client loading', () => {
     const mod = (await import('meilisearch')) as Record<string, unknown>
     const named = Object.keys(mod).filter((k) => /^meilisearch$/i.test(k))
     expect(named.length).toBeGreaterThan(0)
+  })
+})
+
+describe('near=lat,lon parsing', () => {
+  it('accepts a well-formed pair', () => {
+    expect(parseNear('40.0150,-105.2705')).toEqual({ lat: 40.015, lon: -105.2705 })
+  })
+  it('refuses anything that is not two finite degrees', () => {
+    // A bad value must browse normally. Passed through, NaN reaches _geoRadius and
+    // silently matches nothing, which reads to a visitor as "there is nothing near me".
+    for (const bad of [undefined, '', 'boulder', '40.015', '40.015,', ',', '40.015,-105.27,7', 'NaN,3']) {
+      expect(parseNear(bad as string | undefined)).toBeUndefined()
+    }
+  })
+  it('refuses degrees outside the globe', () => {
+    expect(parseNear('91,0')).toBeUndefined()
+    expect(parseNear('0,181')).toBeUndefined()
+    expect(parseNear('-90,180')).toEqual({ lat: -90, lon: 180 })
   })
 })

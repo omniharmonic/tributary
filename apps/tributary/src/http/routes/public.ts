@@ -12,7 +12,7 @@ import { host, imageCache, sourceEvent } from '../../db/schema.js'
 import { getHostByHandle, publicHost } from '../../lib/hosts.js'
 import { buildPreview, detect, loadPreview } from '../../lib/preview.js'
 import { gate } from '../../pipeline/gate.js'
-import { searchEvents, searchHealth } from '../../search/index.js'
+import { parseNear, searchEvents, searchHealth } from '../../search/index.js'
 import { ApiError, clientIp, notFound, rateLimit, requireHost, str, type AppContext, type Vars } from '../context.js'
 import { gateVisibility } from './events.js'
 
@@ -132,6 +132,11 @@ publicRoutes.get('/events', async (c) => {
   const category = c.req.query('category')
   const q = c.req.query('q')?.trim().toLowerCase()
   const limit = Math.min(Number(c.req.query('limit') ?? 200), 500)
+  // `near=lat,lon` with an optional `radiusKm`. The index carries coordinates for public
+  // events only — a gated event is indexed without `_geo` — so a radius search can
+  // never disclose a withheld address, and there is no separate check to forget.
+  const near = parseNear(c.req.query('near'))
+  const radiusKm = near ? Math.min(Math.max(Number(c.req.query('radiusKm') ?? 25) || 25, 0.1), 200) : undefined
 
   // Postgres always re-asserts region, state and visibility, whatever the index said, so
   // a bug in the indexing path can never widen what a stranger sees.
@@ -151,8 +156,8 @@ publicRoutes.get('/events', async (c) => {
   // nothing. Ask the index first, then read exactly those rows.
   let rows: Awaited<ReturnType<typeof fetchRows>>
   let rank: Map<string, number> | undefined
-  if (q) {
-    const found = await searchEvents({ q, region, category, from, to, limit })
+  if (q || near) {
+    const found = await searchEvents({ q, region, category, from, to, limit, near, radiusKm })
     if (found.available) {
       const ids = found.hits.map((h) => h.id)
       rank = new Map(ids.map((id, i) => [id, i]))
@@ -160,11 +165,15 @@ publicRoutes.get('/events', async (c) => {
     } else {
       // The index is down. Fall back to a substring scan of the chronological page
       // rather than showing an empty directory.
+      // Without the index we cannot do a radius at all, so a geo-only request degrades to
+      // the plain chronological list rather than to nothing.
       const all = await fetchRows(and(gte(sourceEvent.startsAt, from), lte(sourceEvent.startsAt, to)), true)
-      rows = all.filter(({ e, h }) => {
-        const p = publicCard(e, h)
-        return `${p.card.name} ${p.card.place ?? ''} ${p.card.excerpt ?? ''} ${p.host.displayName}`.toLowerCase().includes(q)
-      })
+      rows = q
+        ? all.filter(({ e, h }) => {
+            const p = publicCard(e, h)
+            return `${p.card.name} ${p.card.place ?? ''} ${p.card.excerpt ?? ''} ${p.host.displayName}`.toLowerCase().includes(q)
+          })
+        : all
     }
   } else {
     rows = await fetchRows(and(gte(sourceEvent.startsAt, from), lte(sourceEvent.startsAt, to)), true)
@@ -183,6 +192,8 @@ publicRoutes.get('/events', async (c) => {
   // The index already applied the category for a search; this covers the browse path.
   if (category && !rank) cards = cards.filter((x) => x.event.card.category === category || x.event.card.tags.includes(category))
   if (rank) cards.sort((a, b) => (rank.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (rank.get(b.id) ?? Number.MAX_SAFE_INTEGER))
+  // A radius with no words is browsing, not searching: put it back in time order.
+  if (near && !q) cards.sort((a, b) => a.event.card.startsAt.localeCompare(b.event.card.startsAt))
   c.header('Cache-Control', 'public, max-age=60')
   return c.json({ events: cards.map((x) => x.event), cursor: null })
 })
