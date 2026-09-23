@@ -26,6 +26,14 @@ export interface EnrichOptions {
   /** Skip page fetches (preview mode fetches at most this many pages). */
   pageBudget?: number
   hostLogoHash?: string | null
+  /**
+   * The venue this whole source belongs to, if it has one. A single-venue calendar often
+   * publishes its rooms and nothing else: Nederland Community Library's feed gives
+   * "Community Room" with no street and no town, which nothing on earth could geocode,
+   * and all 199 of its events landed unpinned. The source's own name is the missing half
+   * of that address, and it is usually already in the gazetteer.
+   */
+  venueHint?: string | null
 }
 
 export async function enrich(events: NormalizedEvent[], opts: EnrichOptions = {}): Promise<NormalizedEvent[]> {
@@ -85,11 +93,22 @@ export async function enrich(events: NormalizedEvent[], opts: EnrichOptions = {}
               .values({ key, lat: String(best.result.lat), lon: String(best.result.lon), precision: best.result.precision })
               .onConflictDoNothing()
           }
-          const v = best?.venue
+          // Only when the event gave a bare room name: no street, no town, and nothing
+          // resolved. Never enough to override a place the event actually stated.
+          let fallback: Awaited<ReturnType<typeof geocodeBest>> | undefined
+          if (!best?.venue && !l.street && !l.locality && l.lat === undefined && opts.venueHint) {
+            fallback = await geocodeBest(opts.venueHint, { photonUrl: '', http }).catch(() => undefined)
+            if (fallback?.venue) {
+              const room = l.name
+              const hall = fallback.venue
+              e = { ...e, locations: [{ ...l, name: room && room !== hall.name ? `${hall.name}, ${room}` : hall.name, street: hall.street, locality: hall.locality, region: hall.region, postalCode: hall.postalCode, country: hall.country, lat: hall.lat, lon: hall.lon }, ...e.locations.slice(1)] }
+            }
+          }
+          const v = fallback?.venue ? undefined : best?.venue
           if (v) {
             e = { ...e, locations: [{ ...l, name: v.name, street: l.street ?? v.street, locality: l.locality ?? v.locality, region: l.region ?? v.region, postalCode: l.postalCode ?? v.postalCode, country: l.country ?? v.country, lat: l.lat ?? v.lat, lon: l.lon ?? v.lon, precision: v.precision === 'exact' ? l.precision : 'neighborhood' }, ...e.locations.slice(1)] }
           }
-          const r = best?.result ?? (cached[0]?.lat ? { lat: Number(cached[0].lat), lon: Number(cached[0].lon), precision: (cached[0].precision ?? 'exact') as 'exact' | 'city' } : undefined)
+          const r = fallback?.venue ? undefined : best?.result ?? (cached[0]?.lat ? { lat: Number(cached[0].lat), lon: Number(cached[0].lon), precision: (cached[0].precision ?? 'exact') as 'exact' | 'city' } : undefined)
           if (r && e.locations[0]!.lat === undefined) {
             // A city centroid is not a pin. Record it as a coarse location instead.
             e = r.precision === 'exact'

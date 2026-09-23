@@ -308,3 +308,32 @@ describe('the US Census geocoder', () => {
     expect(r?.result.precision).toBe('exact')
   })
 })
+
+describe('a source label as the venue of last resort', () => {
+  // A single-venue calendar often publishes room names and nothing else. Nederland
+  // Community Library's LibCal feed gives "Community Room": no street, no town, nothing
+  // any geocoder could place, and all 199 of its events landed unpinned. The source's
+  // own name is the missing half of that address, and the gazetteer already holds it.
+  // `enrich` uses this only when an event supplied no street and no locality.
+  it('resolves the single-venue sources we actually seeded', () => {
+    for (const label of [
+      'Nederland Community Library',
+      'Lafayette Public Library',
+      'Boulder Public Library',
+      'Wild Bear Nature Center',
+      'Dairy Arts Center',
+    ]) {
+      const v = matchVenue(label)
+      expect(v, `${label} should be in the gazetteer`).toBeTruthy()
+      expect(v!.lat, `${label} needs coordinates`).toBeTypeOf('number')
+    }
+  })
+
+  it('does not invent a venue for a source that is a whole county or a network', () => {
+    // These labels must miss, or every event on a multi-venue feed that happens to omit
+    // an address would be pinned to one arbitrary building.
+    for (const label of ['Boulder County', 'Colorado Startups', 'City of Longmont']) {
+      expect(matchVenue(label), `${label} must not match a single building`).toBeFalsy()
+    }
+  })
+})

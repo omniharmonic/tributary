@@ -347,7 +347,9 @@ export async function runSource(sourceId: string, opts: { trigger?: 'schedule' |
       }
     }
 
-    const enriched = await enrich(normalized, { pageBudget: opts.trigger === 'first' ? 300 : 120, hostLogoHash: h.logoImageHash })
+    // A single-venue calendar's own name is often the address its events omit, and the
+    // gazetteer usually knows it. Only used when an event gave no street and no town.
+    const enriched = await enrich(normalized, { pageBudget: opts.trigger === 'first' ? 300 : 120, hostLogoHash: h.logoImageHash, venueHint: s.label })
 
     const rows = await db.select().from(sourceEvent).where(eq(sourceEvent.sourceId, s.id))
     const byId = new Map(rows.map((r) => [r.id, r]))
