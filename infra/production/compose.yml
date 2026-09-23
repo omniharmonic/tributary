@@ -69,6 +69,33 @@ services:
       retries: 12
     networks: [default, edge]
 
+
+  meili:
+    image: getmeili/meilisearch:v1.24
+    restart: unless-stopped
+    environment:
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY:?Set MEILI_MASTER_KEY}
+      MEILI_ENV: production
+      # Bound the indexing arena. Search itself memory-maps the index, so the
+      # resident set stays well under this; see README for the sizing note.
+      MEILI_MAX_INDEXING_MEMORY: 512Mb
+      MEILI_MAX_INDEXING_THREADS: '2'
+      MEILI_NO_ANALYTICS: 'true'
+      MEILI_LOG_LEVEL: WARN
+    volumes:
+      - meili:/meili_data
+    healthcheck:
+      # The health endpoint is unauthenticated on purpose.
+      test: [CMD-SHELL, 'wget -qO- http://localhost:7700/health | grep -q available']
+      interval: 15s
+      timeout: 5s
+      start_period: 30s
+      retries: 6
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+
   gate:
     build:
       context: ../..
@@ -112,7 +139,9 @@ services:
       # Reached directly for the TLS gate and health, without a round trip through Caddy.
       PDS_INTERNAL_URL: http://directory-pds:3000
       GATE_URL: http://gate:4200
-      MEILI_URL: ${MEILI_URL:-}
+      MEILI_URL: http://meili:7700
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY:?Set MEILI_MASTER_KEY}
+      MEILI_INDEX: tb_events
       PHOTON_URL: ${PHOTON_URL:-}
       CONSOLE_DIST: /app/apps/console/dist
       TRIBUTARY_VERSION: ${TRIBUTARY_VERSION:-dev}
@@ -123,6 +152,8 @@ services:
         condition: service_healthy
       gate:
         condition: service_started
+      meili:
+        condition: service_healthy
     healthcheck:
       test: [CMD, node, -e, "fetch('http://localhost:4100/api/public/health').then(r=>process.exit(r.status<500?0:1)).catch(()=>process.exit(1))"]
       interval: 30s
@@ -134,6 +165,7 @@ services:
 
 volumes:
   postgres:
+  meili:
   pds:
   gate_blobs:
 

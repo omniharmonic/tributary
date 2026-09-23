@@ -22,6 +22,7 @@ import { describeError, log } from '../lib/logging.js'
 import { deletePermissioned, writePermissioned } from './gate.js'
 import { enrich } from './enrich.js'
 import { planReconcile, type Action, type LedgerRow } from './reconcile.js'
+import { deindexEvent, indexEvent } from '../search/index.js'
 
 export const INTERVAL_FLOOR_MS = 10 * 60_000
 export const INTERVAL_CEILING_MS = 6 * 3_600_000
@@ -217,6 +218,8 @@ async function execute(h: HostRow, s: SourceRow, action: Action, byId: Map<strin
         .insert(sourceEvent)
         .values({ id: id('ev'), sourceId: s.id, hostId: h.id, externalId: e.identity.externalId, occurrence: e.identity.occurrence ?? '', ...(patch as Record<string, unknown>) } as never)
         .onConflictDoUpdate({ target: [sourceEvent.sourceId, sourceEvent.externalId, sourceEvent.occurrence], set: patch as never })
+      const fresh = await db.select().from(sourceEvent).where(and(eq(sourceEvent.sourceId, s.id), eq(sourceEvent.externalId, e.identity.externalId), eq(sourceEvent.occurrence, e.identity.occurrence ?? ''))).limit(1)
+      if (fresh[0]) await indexEvent(fresh[0], h)
       summary.published++
       return
     }
@@ -233,6 +236,7 @@ async function execute(h: HostRow, s: SourceRow, action: Action, byId: Map<strin
       }
       const patch = await place(h, s, e, row)
       await db.update(sourceEvent).set({ ...patch, externalId: e.identity.externalId, occurrence: e.identity.occurrence ?? '', cancelledAt: e.status === 'cancelled' ? (row.cancelledAt ?? now) : null } as never).where(eq(sourceEvent.id, row.id))
+      await indexEvent({ ...row, ...(patch as Partial<EventRow>) }, h)
       if (e.status === 'cancelled') summary.cancelled++
       else summary.updated++
       return
@@ -261,6 +265,7 @@ async function execute(h: HostRow, s: SourceRow, action: Action, byId: Map<strin
       if (row.atUri || row.spaceUri) {
         const patch = await place(h, s, e, row)
         await db.update(sourceEvent).set({ ...patch, state: 'cancelled', cancelledAt: now } as never).where(eq(sourceEvent.id, row.id))
+        await indexEvent({ ...row, ...(patch as Partial<EventRow>), state: 'cancelled' }, h)
       } else {
         await db.update(sourceEvent).set({ state: 'cancelled', cancelledAt: now }).where(eq(sourceEvent.id, row.id))
       }
@@ -279,6 +284,7 @@ async function execute(h: HostRow, s: SourceRow, action: Action, byId: Map<strin
       }
       if (row.spaceUri) await deletePermissioned(h.did as `did:${string}`, row)
       await db.update(sourceEvent).set({ state: 'removed', atUri: null, atCid: null, spaceUri: null, spaceRecordUri: null, teaserAtUri: null, blob: null, imageHash: null }).where(eq(sourceEvent.id, row.id))
+      await deindexEvent(row.id)
       summary.removed++
       return
     }

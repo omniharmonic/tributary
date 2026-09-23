@@ -12,6 +12,7 @@ import { host, imageCache, sourceEvent } from '../../db/schema.js'
 import { getHostByHandle, publicHost } from '../../lib/hosts.js'
 import { buildPreview, detect, loadPreview } from '../../lib/preview.js'
 import { gate } from '../../pipeline/gate.js'
+import { searchEvents, searchHealth } from '../../search/index.js'
 import { ApiError, clientIp, notFound, rateLimit, requireHost, str, type AppContext, type Vars } from '../context.js'
 import { gateVisibility } from './events.js'
 
@@ -45,7 +46,9 @@ publicRoutes.get('/health', async (c) => {
   } catch {
     checks.gate = 'down'
   }
-  const ok = Object.values(checks).every((v) => v === 'ok')
+  // Search is optional: 'off' must not make the deployment look unhealthy.
+  checks.search = await searchHealth()
+  const ok = Object.entries(checks).every(([k, v]) => v === 'ok' || (k === 'search' && v === 'off'))
   return c.json({ status: ok ? 'ok' : 'degraded', checks, version: process.env.TRIBUTARY_VERSION ?? 'dev' }, ok ? 200 : 503)
 })
 
@@ -102,7 +105,7 @@ export function publicCard(row: typeof sourceEvent.$inferSelect, h: typeof host.
   const n = row.normalized as unknown as NormalizedEvent
   const card = toCard({ ...n, status: row.state === 'cancelled' ? 'cancelled' : n.status }, imageUrlFor(row))
   const rkey = row.atUri?.split('/').pop() ?? null
-  return { ...card, did: h.did, rkey, atUri: row.atUri, host: { did: h.did, handle: h.handle, displayName: h.displayName, provenanceLevel: h.provenanceLevel }, audienceName: null }
+  return { ...card, id: row.id, did: h.did, rkey, atUri: row.atUri, host: { did: h.did, handle: h.handle, displayName: h.displayName, provenanceLevel: h.provenanceLevel }, audienceName: null }
 }
 
 publicRoutes.get('/events', async (c) => {
@@ -122,7 +125,19 @@ publicRoutes.get('/events', async (c) => {
     .limit(limit)
   let cards = groupDuplicates(rows.map(({ e, h }) => ({ ...publicCard(e, h), rank: h.door === 'listed' ? 1 : 0, publishedAt: e.firstSeen.toISOString() }))).map(({ rank: _r, publishedAt: _p, ...card }) => card)
   if (category) cards = cards.filter((x) => x.category === category || x.tags.includes(category))
-  if (q) cards = cards.filter((x) => `${x.name} ${x.place ?? ''} ${x.excerpt ?? ''} ${x.host.displayName}`.toLowerCase().includes(q))
+  if (q) {
+    // Meilisearch ranks; Postgres holds the truth. When the index is unavailable we fall
+    // back to a substring match rather than showing nothing.
+    const found = await searchEvents({ q, region, category, from, to, limit })
+    if (found.available) {
+      const rank = new Map(found.hits.map((h, i) => [h.id, i]))
+      const byId = new Map(rows.map(({ e }) => [e.id, e.id]))
+      cards = cards.filter((x) => rank.has(x.id) && byId.has(x.id)).sort((a, b) => (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0))
+    } else {
+      const needle = q.toLowerCase()
+      cards = cards.filter((x) => `${x.name} ${x.place ?? ''} ${x.excerpt ?? ''} ${x.host.displayName}`.toLowerCase().includes(needle))
+    }
+  }
   c.header('Cache-Control', 'public, max-age=60')
   return c.json({ events: cards, cursor: null })
 })

@@ -130,13 +130,13 @@ export type LedgerPage = (afterId: string | null, limit: number) => Promise<Arra
  * holds the whole table in memory. Indexable rows are upserted; everything else is
  * removed, which is what repairs an index that went stale while search was down.
  */
-export async function reindexAll(opts: { pageSize?: number; page?: LedgerPage } = {}): Promise<{ indexed: number; removed: number; ok: boolean }> {
+export async function reindexAll(opts: { pageSize?: number; page?: LedgerPage; index?: SearchIndex } = {}): Promise<{ indexed: number; removed: number; ok: boolean }> {
   const pageSize = opts.pageSize ?? 500
   const page = opts.page ?? defaultLedgerPage
   let indexed = 0
   let removed = 0
   try {
-    const idx = await searchIndex()
+    const idx = opts.index ?? (await searchIndex())
     if (idx instanceof NullSearchIndex) return { indexed: 0, removed: 0, ok: false }
     let after: string | null = null
     for (let guard = 0; guard < 10_000; guard++) {

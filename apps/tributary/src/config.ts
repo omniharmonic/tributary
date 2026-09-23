@@ -51,6 +51,7 @@ const schema = z.object({
   /** Search. Empty = the Postgres substring fallback. */
   MEILI_URL: z.string().default(''),
   MEILI_MASTER_KEY: z.string().default(''),
+  MEILI_INDEX: z.string().default('tb_events'),
 
   /** Enrichment. */
   GOOGLE_API_KEY: z.string().default(''),
@@ -115,5 +116,6 @@ export function redactedConfig(c: Config): Record<string, string | number | bool
     googleApi: c.GOOGLE_API_KEY ? 'configured' : 'off',
     extraction: c.EXTRACT_MODEL_API_KEY ? 'configured' : 'off',
     telegram: c.TELEGRAM_BOT_TOKEN ? 'configured' : 'off',
+    search: c.MEILI_URL ? 'configured' : 'off',
   }
 }

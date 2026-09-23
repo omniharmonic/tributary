@@ -191,6 +191,9 @@ importers:
       luxon:
         specifier: ^3.7.2
         version: 3.7.2
+      meilisearch:
+        specifier: ^0.62.0
+        version: 0.62.0
       nodemailer:
         specifier: ^10.0.9
         version: 10.0.10
@@ -2470,6 +2473,10 @@ packages:
   media-typer@1.1.1:
     resolution: {integrity: sha512-yz3xRaG20c6/BOzvYoDaGtPmGscs7YivItZEEqe6GbwNfHuxu9YNmvnEkMzKldAGY4/80pRcQRZSEnhquk9XuQ==}
     engines: {node: '>= 0.8'}
+
+  meilisearch@0.62.0:
+    resolution: {integrity: sha512-/ETDW7mmWI2NcSmtJdTPhbjsIbs3VcuapszX5X6JhdHB0XbszPOhqd3EB2bEylL0HK7dgwh/4Z3MdyuycWVf5A==}
+    engines: {node: ^20.19.0 || >=22.12.0}
 
   merge-descriptors@2.0.0:
     resolution: {integrity: sha512-Snk314V5ayFLhp3fkUREub6WtjBfPdCPY1Ln8/8munuLuiYhsABgBVWsozAG+MWMbVEvcdcpbi9R7ww22l9Q3g==}
@@ -4866,6 +4873,8 @@ snapshots:
   mdn-data@2.27.1: {}
 
   media-typer@1.1.1: {}
+
+  meilisearch@0.62.0: {}
 
   merge-descriptors@2.0.0: {}
 

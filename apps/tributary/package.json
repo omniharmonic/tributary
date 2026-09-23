@@ -15,7 +15,9 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx src/db/migrate.ts",
     "smoke": "tsx scripts/smoke.ts",
-    "checks": "tsx scripts/checks.ts"
+    "checks": "tsx scripts/checks.ts",
+    "reindex": "tsx scripts/reindex.ts",
+    "seed-sources": "tsx scripts/seed-sources.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.127.0",
@@ -37,6 +39,7 @@
     "drizzle-orm": "^0.45.2",
     "hono": "^4.13.7",
     "luxon": "^3.7.2",
+    "meilisearch": "^0.62.0",
     "nodemailer": "^10.0.9",
     "pg": "^8.16.3",
     "pg-boss": "^12.31.0",

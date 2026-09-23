@@ -59,7 +59,7 @@ describe('venues', () => {
 describe('geocode', () => {
   it('answers undefined without Photon and parses Photon results', async () => {
     const http = mockHttp({
-      'http://photon:2322/api?q=1001+Arapahoe+Ave%2C+Boulder&limit=1': {
+      'http://photon:2322/api?q=1001+Arapahoe+Ave%2C+Boulder&limit=5&lat=40.015&lon=-105.27&bbox=-105.8%2C39.5%2C-104.8%2C40.4': {
         contentType: 'application/json',
         body: JSON.stringify({ features: [{ geometry: { coordinates: [-105.2816, 40.0139] }, properties: { housenumber: '1001', street: 'Arapahoe Ave', city: 'Boulder', state: 'Colorado', postcode: '80302', countrycode: 'us' } }] }),
       },

@@ -1,0 +1,43 @@
+# Meilisearch for Tributary. Merge this `meili` service into
+# `infra/production/compose.yml` and add the three environment lines below to the
+# `tributary` service. Nothing here publishes a port: only the API talks to it, over
+# the compose network. See ./README.md.
+#
+#   tributary:
+#     environment:
+#       MEILI_URL: http://meili:7700
+#       MEILI_MASTER_KEY: ${MEILI_MASTER_KEY:?Set MEILI_MASTER_KEY}
+#       MEILI_INDEX: tb_events
+#     depends_on:
+#       meili:
+#         condition: service_healthy
+
+services:
+  meili:
+    image: getmeili/meilisearch:v1.24
+    restart: unless-stopped
+    environment:
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY:?Set MEILI_MASTER_KEY}
+      MEILI_ENV: production
+      # Bound the indexing arena. Search itself memory-maps the index, so the
+      # resident set stays well under this; see README for the sizing note.
+      MEILI_MAX_INDEXING_MEMORY: 512Mb
+      MEILI_MAX_INDEXING_THREADS: '2'
+      MEILI_NO_ANALYTICS: 'true'
+      MEILI_LOG_LEVEL: WARN
+    volumes:
+      - meili:/meili_data
+    healthcheck:
+      # The health endpoint is unauthenticated on purpose.
+      test: [CMD-SHELL, 'wget -qO- http://localhost:7700/health | grep -q available']
+      interval: 15s
+      timeout: 5s
+      start_period: 30s
+      retries: 6
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+
+volumes:
+  meili:
