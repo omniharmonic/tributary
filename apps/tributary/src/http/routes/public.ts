@@ -163,10 +163,9 @@ publicRoutes.get('/events', async (c) => {
       rank = new Map(ids.map((id, i) => [id, i]))
       rows = ids.length === 0 ? [] : await fetchRows(inArray(sourceEvent.id, ids), false)
     } else {
-      // The index is down. Fall back to a substring scan of the chronological page
-      // rather than showing an empty directory.
-      // Without the index we cannot do a radius at all, so a geo-only request degrades to
-      // the plain chronological list rather than to nothing.
+      // The index is down. A text query falls back to a substring scan of the
+      // chronological page rather than showing an empty directory; a radius cannot be
+      // done at all without the index, so a geo-only request degrades to that plain page.
       const all = await fetchRows(and(gte(sourceEvent.startsAt, from), lte(sourceEvent.startsAt, to)), true)
       rows = q
         ? all.filter(({ e, h }) => {
