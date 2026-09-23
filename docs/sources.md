@@ -80,6 +80,21 @@ meetings; Open Space and Mountain Parks programmes are not on it at all. This is
 county's largest city and its weakest source, while Boulder County, Longmont, Erie,
 Lafayette, Nederland and Lyons all publish clean feeds.
 
+**Four sources are reachable from a laptop but not from our Hetzner host**, so they are
+not in the seed file. This was measured from the production box, not assumed from the
+research, which ran on a residential connection:
+
+| Organisation | From the server | With a browser user agent | Reading |
+|---|---|---|---|
+| City of Longmont | 403 | 403 | The datacenter IP range is blocked. This is the costliest loss in the set, 932 events including the library and the museum. A note to the city asking them to allow the range would recover all three at once. |
+| Rocky Mountain Insight | 403 | 403 | Datacenter range blocked, 261 events |
+| Resource Central | 403 | 403 | Datacenter range blocked, 2 events |
+| Museum of Boulder | 403 | 200 | Not the address, the identity: they decline bots. We send an honest, identifying user agent and we are not going to dress it up as Chrome to get in, for the same reason we leave the Cloudflare-blocked sites alone. |
+
+Three CU group feeds also answered 503 during that sweep and 200 when re-fetched a few
+seconds apart. That was the sweep's own fault, not a block; `packages/ssrf-fetch` spaces
+requests per host, so the sync path does not trip it.
+
 Also unreachable, each confirmed rather than assumed:
 
 | Organisation | Why |

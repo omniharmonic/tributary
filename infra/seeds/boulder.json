@@ -4,10 +4,6 @@
   "label": "Boulder County"
  },
  {
-  "input": "https://www.longmontcolorado.gov/events/",
-  "label": "City of Longmont"
- },
- {
   "input": "https://www.erieco.gov/common/modules/iCalendar/iCalendar.aspx?catID=14&feed=calendar",
   "label": "Town of Erie"
  },
@@ -76,10 +72,6 @@
   "label": "BMoCA"
  },
  {
-  "input": "https://www.museumofboulder.org/events/",
-  "label": "Museum of Boulder"
- },
- {
   "input": "https://www.betc.org/upcoming-shows",
   "label": "Boulder Ensemble Theatre Company"
  },
@@ -96,7 +88,7 @@
   "label": "Longmont Public Media"
  },
  {
-  "input": "https://coloradomusicfestival.org/events/",
+  "input": "https://coloradomusicfestival.org",
   "label": "Colorado Music Festival"
  },
  {
@@ -122,14 +114,6 @@
  {
   "input": "https://www.bouldermountainbike.org/events/",
   "label": "Boulder Mountainbike Alliance"
- },
- {
-  "input": "https://resourcecentral.org/events/",
-  "label": "Resource Central"
- },
- {
-  "input": "https://rockymountaininsight.org/events/",
-  "label": "Rocky Mountain Insight"
  },
  {
   "input": "https://www.meetup.com/bdnewtech/events/ical/",
