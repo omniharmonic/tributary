@@ -52,6 +52,13 @@ works for any of roughly 250 Localist groups, so adding a department later is on
 | Fiske Planetarium | 1 |
 | Naropa University (tribe) | 35 |
 
+The all-campus feed was seeded once before this decision and is left in the ledger with
+`status = 'paused'`, so it stops growing but its published records survive. Sampling it
+showed roughly half genuine public programming (recitals, lectures, the Art Museum's
+sound baths) and half campus-internal notices and registrar deadlines such as "Last Day
+to Add a Class", which carry no venue at all. Unpause it with a single UPDATE if that
+trade looks different to you.
+
 ### Arts, environment, spiritual, tech
 
 Colorado Chautauqua (374), BMoCA (34), Museum of Boulder (14), Boulder Ensemble Theatre
