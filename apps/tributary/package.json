@@ -17,7 +17,8 @@
     "smoke": "tsx scripts/smoke.ts",
     "checks": "tsx scripts/checks.ts",
     "reindex": "tsx scripts/reindex.ts",
-    "seed-sources": "tsx scripts/seed-sources.ts"
+    "seed-sources": "tsx scripts/seed-sources.ts",
+    "remove-source": "tsx scripts/remove-source.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.127.0",
