@@ -29,6 +29,12 @@ than the tests, and are fixed:
   colloquium told readers its address was being withheld when geocoding had merely
   stopped at the city centroid.
 
+Curation is part of the ingest, not an afterthought. CU Boulder's all-campus feed would
+have contributed 2248 events, half of them registrar deadlines with no venue, and it was
+already opening the "Later" view on "Last Day to Drop a Class". It was withdrawn;
+`scripts/remove-source.ts` is the curator's counterpart to the seeder, and it takes the
+records out of the repo rather than orphaning them.
+
 The scheduler is live: a tick every minute, plus nightly checks, retention, relay
 monitor, search reindex and the monthly digest, so sources stay current without a hand
 on them.

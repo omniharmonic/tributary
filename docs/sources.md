@@ -52,12 +52,14 @@ works for any of roughly 250 Localist groups, so adding a department later is on
 | Fiske Planetarium | 1 |
 | Naropa University (tribe) | 35 |
 
-The all-campus feed was seeded once before this decision and is left in the ledger with
-`status = 'paused'`, so it stops growing but its published records survive. Sampling it
+The all-campus feed was seeded once before this decision, then withdrawn. Sampling it
 showed roughly half genuine public programming (recitals, lectures, the Art Museum's
-sound baths) and half campus-internal notices and registrar deadlines such as "Last Day
-to Add a Class", which carry no venue at all. Unpause it with a single UPDATE if that
-trade looks different to you.
+sound baths) and half campus-internal notices and registrar deadlines carrying no venue
+at all. Pausing it stopped the growth but left the damage: the directory's "Later" view
+opened on "Fall 2026 Last Day to Drop a Class Without Penalty". All 208 records were
+withdrawn from the repo with `scripts/remove-source.ts`, which walks the repo before it
+drops the ledger row so nothing is stranded on the firehose. The genuinely public CU
+events are covered by the seven group feeds above.
 
 ### Arts, environment, spiritual, tech
 
