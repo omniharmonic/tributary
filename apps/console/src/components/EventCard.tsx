@@ -4,7 +4,7 @@
  * attendee sees after.
  */
 import type { ReactNode } from 'react'
-import type { EventCard as EventCardModel, ProvenanceLevel } from '../lib/types'
+import type { EventCard as EventCardModel, ProvenanceLevel, Visibility } from '../lib/types'
 import { ProvenanceBadge, SourceBadge, StatusBadge, VisibilityBadge } from './Badges'
 
 export interface EventCardProps {
@@ -38,7 +38,7 @@ export function EventCard({ card, hostName, provenance, audienceName, href, acti
         </h3>
         <p className="mt-0.5 truncate text-sm text-ink-soft">
           {card.place ?? (card.mode === 'virtual' ? 'Online' : 'Location to be announced')}
-          {card.placeCoarse ? <span className="text-ink-faint"> · exact location shared with confirmed guests</span> : null}
+          {card.placeCoarse ? <CoarsePlaceNote visibility={card.visibility} audienceName={audienceName} /> : null}
           {hostName ? <span> · {hostName}</span> : null}
         </p>
         <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
@@ -72,4 +72,23 @@ export function Placeholder({ name }: { name: string }) {
       <span className="font-serif text-2xl leading-none text-pine">{letter}</span>
     </div>
   )
+}
+
+/**
+ * `placeCoarse` has two quite different causes and they must not share one sentence.
+ *
+ * On a gated event we withhold the street on purpose, and saying so is the point: the
+ * reader learns there is an address and how to earn it. On a public event the flag means
+ * only that geocoding got as far as the city centroid, so the same sentence would claim a
+ * secret that does not exist — a public university colloquium telling a neighbour the
+ * address is for confirmed guests. That is the opposite of "access control, not secrecy",
+ * and it is simply untrue.
+ */
+const GATES_LOCATION = new Set<Visibility>(['gated', 'members', 'invite'])
+
+function CoarsePlaceNote({ visibility, audienceName }: { visibility: Visibility; audienceName?: string | null }) {
+  if (GATES_LOCATION.has(visibility)) {
+    return <span className="text-ink-faint"> · exact location shared with {audienceName || 'confirmed guests'}</span>
+  }
+  return <span className="text-ink-faint"> · approximate location</span>
 }

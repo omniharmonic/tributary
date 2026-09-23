@@ -45,4 +45,15 @@ describe('EventCard', () => {
     expect(screen.getByText('Cancelled')).toBeInTheDocument()
     expect(screen.getByText(/exact location shared with confirmed guests/)).toBeInTheDocument()
   })
+  it('names the real audience on a gated event when we know it', () => {
+    render(<EventCard card={{ ...base, placeCoarse: true, place: 'Boulder, CO', visibility: 'members' }} audienceName="Wednesday Sangha" />)
+    expect(screen.getByText(/exact location shared with Wednesday Sangha/)).toBeInTheDocument()
+  })
+  it('does not claim a secret on a public event we merely failed to geocode', () => {
+    // A coarse place on a public event means the geocoder stopped at the city centroid,
+    // not that anyone is withholding the address.
+    render(<EventCard card={{ ...base, placeCoarse: true, place: 'Boulder, CO', visibility: 'public' }} />)
+    expect(screen.queryByText(/confirmed guests/)).toBeNull()
+    expect(screen.getByText(/approximate location/)).toBeInTheDocument()
+  })
 })
