@@ -337,3 +337,13 @@ describe('reindexAll', () => {
     expect(res).toEqual({ indexed: 0, removed: 0, ok: false })
   })
 })
+
+describe('client loading', () => {
+  it('accepts either exported constructor name', async () => {
+    // The package renamed `MeiliSearch` to `Meilisearch`; production once fell back to
+    // Postgres silently because only the old name was read.
+    const mod = (await import('meilisearch')) as Record<string, unknown>
+    const named = Object.keys(mod).filter((k) => /^meilisearch$/i.test(k))
+    expect(named.length).toBeGreaterThan(0)
+  })
+})

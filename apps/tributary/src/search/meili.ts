@@ -22,9 +22,16 @@ const BATCH = 500
 export async function loadMeiliClient(host: string, apiKey: string): Promise<RawClient | null> {
   try {
     const spec: string = 'meilisearch'
-    const mod = (await import(spec)) as { MeiliSearch?: new (o: { host: string; apiKey?: string }) => RawClient }
-    if (!mod.MeiliSearch) return null
-    return new mod.MeiliSearch({ host, apiKey: apiKey || undefined })
+    type Ctor = new (o: { host: string; apiKey?: string }) => RawClient
+    const mod = (await import(spec)) as { Meilisearch?: Ctor; MeiliSearch?: Ctor; default?: { Meilisearch?: Ctor; MeiliSearch?: Ctor } }
+    // The package renamed its export from `MeiliSearch` to `Meilisearch`; accept either,
+    // and the CommonJS default shape too, so a version bump cannot silently turn search off.
+    const Client = mod.Meilisearch ?? mod.MeiliSearch ?? mod.default?.Meilisearch ?? mod.default?.MeiliSearch
+    if (!Client) {
+      log.warn('meilisearch is installed but exports no client constructor; search falls back to Postgres')
+      return null
+    }
+    return new Client({ host, apiKey: apiKey || undefined })
   } catch (err) {
     log.warn('meilisearch client could not be loaded; search falls back to Postgres', { detail: describeError(err) })
     return null
