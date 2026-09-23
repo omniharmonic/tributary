@@ -1,6 +1,38 @@
-# Status against the plan (2026-09-21)
+# Status against the plan (2026-09-23)
 
 Deployed: https://boulderevents.directory (see `deployment.md`).
+
+## Where the directory actually stands
+
+The apex, `www`, `pds` and the wildcard handle domain all resolve and serve over TLS on
+their own PDS, independent of Free School's. The curator has seeded Boulder County's
+calendars from `infra/seeds/boulder.json`; `docs/sources.md` lists every source, what it
+returned, and which four the Hetzner address cannot reach.
+
+Search runs on Meilisearch with Boulder synonyms and typo tolerance, and it is worth
+using: "gig" finds shows, "kids" finds family storytime, "libary" and "meditaton" both
+resolve. `near=lat,lon&radiusKm=` filters by radius against the geocoded coordinates.
+
+Three defects that only appear at real volume were found by reading the live site rather
+than the tests, and are fixed:
+
+- **Search returned almost nothing.** The events route fetched the first 200 events by
+  date and then intersected that page with the search hits, so every match beyond the
+  page was discarded. Meilisearch was returning 33 hits for "concert" while the API
+  returned none. The index now chooses the rows and Postgres re-asserts the guards.
+- **Three of the four time chips were going empty.** The home page sorted one
+  chronological page into Tonight, This weekend, This week and Later in the browser. At a
+  thousand events that page covers five days, so "Later" held nothing. A chosen chip now
+  fetches its own window.
+- **Public events claimed to be keeping a secret.** A coarse location rendered "exact
+  location shared with confirmed guests" whatever the visibility, so a public CU
+  colloquium told readers its address was being withheld when geocoding had merely
+  stopped at the city centroid.
+
+The scheduler is live: a tick every minute, plus nightly checks, retention, relay
+monitor, search reindex and the monthly digest, so sources stay current without a hand
+on them.
+
 
 ## Functional requirements
 
