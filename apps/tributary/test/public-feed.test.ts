@@ -64,6 +64,27 @@ describe('subscribable feed', () => {
     expect(ics).not.toMatch(/DTSTART:\d{8}T/)
   })
 
+  it('never writes a zero-length all-day event, whatever the source said', () => {
+    // Nissi's ships all-day events whose end instant is on the start date.
+    const sameDayEnd = ev({
+      start: { instant: '2026-09-27T06:00:00.000Z', tz: MT, allDay: true, tzInferred: false },
+      end: { instant: '2026-09-27T06:00:00.000Z', tz: MT, allDay: true, tzInferred: false },
+    })
+    const ics = icsFor([{ n: sameDayEnd, uid: 'u@x', cancelled: false }], 'Test')
+    expect(ics).toContain('DTSTART;VALUE=DATE:20260927')
+    expect(ics).toContain('DTEND;VALUE=DATE:20260928')
+  })
+
+  it('keeps a genuine multi-day all-day span', () => {
+    const span = ev({
+      start: { instant: '2026-10-03T06:00:00.000Z', tz: MT, allDay: true, tzInferred: false },
+      end: { instant: '2026-10-05T06:00:00.000Z', tz: MT, allDay: true, tzInferred: false },
+    })
+    const ics = icsFor([{ n: span, uid: 'u@x', cancelled: false }], 'Test')
+    expect(ics).toContain('DTSTART;VALUE=DATE:20261003')
+    expect(ics).toContain('DTEND;VALUE=DATE:20261005')
+  })
+
   it('writes a timed event as an instant', () => {
     const ics = icsFor([{ n: ev(), uid: 'u1@example.org', cancelled: false }], 'Test')
     expect(ics).toContain('DTSTART:20261004T160000Z')

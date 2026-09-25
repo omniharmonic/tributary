@@ -377,11 +377,6 @@ function icsEscape(s: string): string {
 function icsDate(iso: string): string {
   return new Date(iso).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z')
 }
-/** `YYYYMMDD` in the event's own zone: an all-day event is a date, not an instant. */
-function icsDateOnly(iso: string, tz: string): string {
-  return DateTime.fromISO(iso, { zone: 'utc' }).setZone(tz).toFormat('yyyyLLdd')
-}
-
 /**
  * The subscribable feed. Google Calendar, Apple Calendar and Outlook all poll a URL
  * like this one, so two details matter more than they look:
@@ -409,11 +404,14 @@ export function icsFor(items: Array<{ n: NormalizedEvent; uid: string; cancelled
     const place = n.visibility === 'gated' ? [l?.locality, l?.region].filter(Boolean).join(', ') : [l?.name, l?.street, l?.locality, l?.region].filter(Boolean).join(', ')
     lines.push('BEGIN:VEVENT', `UID:${uid}`, `DTSTAMP:${icsDate(n.provenance.fetchedAt)}`)
     if (n.start.allDay) {
-      lines.push(`DTSTART;VALUE=DATE:${icsDateOnly(n.start.instant, n.start.tz)}`)
-      // DTEND is exclusive for a date: a one-day event ends the next morning.
-      const endIso = n.end?.instant ?? n.start.instant
-      const end = DateTime.fromISO(endIso, { zone: 'utc' }).setZone(n.start.tz)
-      const exclusive = n.end ? end : end.plus({ days: 1 })
+      const startDay = DateTime.fromISO(n.start.instant, { zone: 'utc' }).setZone(n.start.tz).startOf('day')
+      // DTEND is exclusive for a date value, and the model's `end` is exclusive too
+      // (`formatWhen` subtracts a day to name the last one). A source that gives an
+      // all-day event an end on its own start date would otherwise produce
+      // `DTEND == DTSTART` — a zero-length event that readers drop on the floor.
+      const endDay = n.end ? DateTime.fromISO(n.end.instant, { zone: 'utc' }).setZone(n.start.tz).startOf('day') : startDay
+      const exclusive = endDay > startDay ? endDay : startDay.plus({ days: 1 })
+      lines.push(`DTSTART;VALUE=DATE:${startDay.toFormat('yyyyLLdd')}`)
       lines.push(`DTEND;VALUE=DATE:${exclusive.toFormat('yyyyLLdd')}`)
     } else {
       lines.push(`DTSTART:${icsDate(n.start.instant)}`)
