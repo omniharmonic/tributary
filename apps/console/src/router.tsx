@@ -37,6 +37,15 @@ export interface HomeSearch {
   q?: string
   category?: string
   when?: 'tonight' | 'weekend' | 'week' | 'later'
+  /** Which shape the directory is in: a list, a month, or a map. */
+  view?: 'list' | 'calendar' | 'map'
+  /** One day, `YYYY-MM-DD`, in the region's zone. */
+  day?: string
+  /** The month the calendar is showing, `YYYY-MM`. */
+  month?: string
+  /** `lat,lon` — set by "near me", and kept in the URL so the view can be shared. */
+  near?: string
+  radiusKm?: string
 }
 export interface ConnectSearch {
   previewId?: string
@@ -90,7 +99,7 @@ async function requireSession({ context, location }: { context: RouterContext; l
   if (!me) throw redirect({ to: '/login', search: { next: location.href } })
 }
 
-const home = createRoute({ getParentRoute: () => rootRoute, path: '/', component: HomeRoute, validateSearch: (s: Record<string, unknown>): HomeSearch => opt({ q: s.q, category: s.category, when: s.when }) as HomeSearch })
+const home = createRoute({ getParentRoute: () => rootRoute, path: '/', component: HomeRoute, validateSearch: (s: Record<string, unknown>): HomeSearch => opt({ q: s.q, category: s.category, when: s.when, view: s.view, day: s.day, month: s.month, near: s.near, radiusKm: s.radiusKm }) as HomeSearch })
 const event = createRoute({ getParentRoute: () => rootRoute, path: '/e/$did/$rkey', component: EventRoute })
 const host = createRoute({ getParentRoute: () => rootRoute, path: '/h/$handle', component: HostRoute })
 const add = createRoute({ getParentRoute: () => rootRoute, path: '/add', component: AddRoute, validateSearch: (s: Record<string, unknown>): { input?: string } => opt({ input: s.input }) })

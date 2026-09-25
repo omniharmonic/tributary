@@ -73,3 +73,83 @@ export function shortDateTime(iso: string | null | undefined, tz?: string): stri
   const d = tz ? DateTime.fromISO(iso, { zone: 'utc' }).setZone(tz) : DateTime.fromISO(iso)
   return d.toFormat('ccc, LLL d, h:mm a')
 }
+
+/* ── the calendar and week views ──────────────────────────────────────────── */
+
+export interface GridDay {
+  /** `YYYY-MM-DD` in the region's zone. */
+  iso: string
+  day: number
+  /** False for the leading and trailing days that square off the month. */
+  inMonth: boolean
+  isToday: boolean
+  isPast: boolean
+  isWeekend: boolean
+}
+
+/**
+ * A month as six rows of seven, Monday first.
+ *
+ * Always six rows, never five: a grid that changes height between March and April makes
+ * the page jump when you click through months, and the whole point of a month view is
+ * that your eye learns where the rows are.
+ */
+export function monthGrid(month: string, tz: string, now = DateTime.now()): GridDay[] {
+  const first = DateTime.fromISO(`${month}-01`, { zone: tz }).startOf('month')
+  const start = first.startOf('week')
+  const today = now.setZone(tz).startOf('day')
+  const out: GridDay[] = []
+  for (let i = 0; i < 42; i++) {
+    const d = start.plus({ days: i })
+    out.push({
+      iso: d.toISODate() ?? '',
+      day: d.day,
+      inMonth: d.month === first.month && d.year === first.year,
+      isToday: d.hasSame(today, 'day'),
+      isPast: d < today,
+      isWeekend: d.weekday === 6 || d.weekday === 7,
+    })
+  }
+  return out
+}
+
+/** The instants a month grid covers, so one request fills the whole visible grid. */
+export function gridWindow(days: GridDay[], tz: string): { from: string; to: string } {
+  const first = days[0]?.iso ?? ''
+  const last = days[days.length - 1]?.iso ?? first
+  return {
+    from: DateTime.fromISO(first, { zone: tz }).startOf('day').toUTC().toISO() ?? '',
+    to: DateTime.fromISO(last, { zone: tz }).endOf('day').toUTC().toISO() ?? '',
+  }
+}
+
+/** `2026-10` → `October 2026`, and the neighbours either side. */
+export function monthLabel(month: string, tz: string): string {
+  return DateTime.fromISO(`${month}-01`, { zone: tz }).toFormat('LLLL yyyy')
+}
+
+export function shiftMonth(month: string, by: number, tz: string): string {
+  return DateTime.fromISO(`${month}-01`, { zone: tz }).plus({ months: by }).toFormat('yyyy-LL')
+}
+
+export function thisMonth(tz: string, now = DateTime.now()): string {
+  return now.setZone(tz).toFormat('yyyy-LL')
+}
+
+/** Seven days from today, for the week strip. */
+export function weekAhead(tz: string, now = DateTime.now()): Array<{ iso: string; num: string; dow: string; isToday: boolean }> {
+  const start = now.setZone(tz).startOf('day')
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = start.plus({ days: i })
+    return { iso: d.toISODate() ?? '', num: d.toFormat('d'), dow: d.toFormat('ccc'), isToday: i === 0 }
+  })
+}
+
+/** One calendar day, as the instants the server filters on. */
+export function dayWindow(iso: string, tz: string, now = DateTime.now()): { from: string; to: string } {
+  const d = DateTime.fromISO(iso, { zone: tz })
+  const n = now.setZone(tz)
+  // Today starts "three hours ago", so something already under way is still listed.
+  const from = d.hasSame(n, 'day') ? n.minus({ hours: 3 }) : d.startOf('day')
+  return { from: from.toUTC().toISO() ?? '', to: d.endOf('day').toUTC().toISO() ?? '' }
+}

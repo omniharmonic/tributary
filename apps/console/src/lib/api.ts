@@ -78,7 +78,7 @@ async function call<T>(method: Method, path: string, body?: unknown, init: { for
 
 export interface Api {
   publicConfig(): Promise<PublicConfig>
-  publicEvents(params: { region: string; from?: string; to?: string; category?: string; q?: string; cursor?: string }): Promise<{ events: PublicEvent[]; cursor?: string | null }>
+  publicEvents(params: { region: string; from?: string; to?: string; category?: string; q?: string; near?: string; radiusKm?: string; limit?: number; cursor?: string }): Promise<{ events: PublicEvent[]; cursor?: string | null }>
   publicEvent(did: string, rkey: string): Promise<PublicEvent>
   requestPlace(did: string, rkey: string): Promise<{ state: 'pending' | 'approved' }>
   publicHost(handle: string): Promise<{ host: PublicHost; events: PublicEvent[] }>

@@ -19,6 +19,13 @@ export interface EventCard {
   mode: NormalizedEvent['mode']
   place?: string
   placeCoarse: boolean
+  /**
+   * Where to put the pin, for the map view. Present only when `placeCoarse` is false,
+   * which is the same predicate that decides whether `place` is a street address — so a
+   * gated event cannot be mapped to its real address, and there is no second rule here
+   * that could be forgotten when the first one changes.
+   */
+  geo?: { lat: number; lon: number }
   imageUrl?: string
   imageOrigin?: NormalizedEvent['image'] extends infer I ? (I extends { origin: infer O } ? O : never) : never
   sourceUrl: string
@@ -57,6 +64,14 @@ export function placeLabel(e: NormalizedEvent): { label?: string; coarse: boolea
   return { label: parts.length ? [...new Set(parts)].join(', ') : undefined, coarse: false }
 }
 
+/** The pin, when the event's own place is exact and public. Otherwise nothing. */
+function geoFor(e: NormalizedEvent, coarse: boolean): { lat: number; lon: number } | undefined {
+  if (coarse) return undefined
+  const l = e.locations[0]
+  if (!l || l.lat === undefined || l.lon === undefined) return undefined
+  return { lat: l.lat, lon: l.lon }
+}
+
 export function toCard(e: NormalizedEvent, imageUrl?: string): EventCard {
   const { label, coarse } = placeLabel(e)
   const missing: EventCard['missing'] = []
@@ -78,6 +93,7 @@ export function toCard(e: NormalizedEvent, imageUrl?: string): EventCard {
     mode: e.mode,
     place: label,
     placeCoarse: coarse,
+    geo: geoFor(e, coarse),
     imageUrl: imageUrl ?? e.image?.url,
     imageOrigin: e.image?.origin as EventCard['imageOrigin'],
     sourceUrl: e.sourceUrl,
