@@ -191,7 +191,9 @@ export function HomeRoute() {
             </button>
           ) : null}
         </div>
-        <div className="mb-6 flex flex-wrap items-center gap-1.5" role="group" aria-label="Kind of event">
+        {/* Ten categories stacked four rows deep pushed the events off a phone screen.
+            One scrolling row keeps them reachable without spending the fold on them. */}
+        <div className="chip-rail mb-6" role="group" aria-label="Kind of event">
           {CATEGORIES.map((cat) => (
             <button key={cat} type="button" className="chip chip-quiet" aria-pressed={search.category === cat} onClick={() => go({ category: search.category === cat ? undefined : cat })}>
               {cat}

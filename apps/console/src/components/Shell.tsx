@@ -40,7 +40,7 @@ export function ActingBanner() {
   if (!acting) return null
   return (
     <div className="border-b border-rule bg-surface-2" role="status">
-      <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-2 px-4 py-1.5 text-sm">
+      <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-2 px-4 py-1.5 text-sm">
         <span>
           Managing <strong>{acting.displayName}</strong> as {acting.role}
           {acting.role === 'viewer' ? ' (read only)' : ''}
@@ -59,10 +59,12 @@ export function Header() {
   const logout = useLogout()
   return (
     <header className="border-b border-rule bg-ground">
-      <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-4 py-3">
-        <Link to="/" className="flex items-center gap-2 no-underline">
-          <Flatirons className="text-ochre" />
-          <span className="font-serif text-xl">{cfg.brand}</span>
+      <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3">
+        {/* The name must not wrap. At 390px "Boulder Events Directory" broke over three
+            lines beside a squashed icon, which is the first thing anyone saw on a phone. */}
+        <Link to="/" className="flex min-w-0 items-center gap-2 no-underline">
+          <Flatirons className="shrink-0 text-ochre" />
+          <span className="truncate font-serif text-[1.0625rem] whitespace-nowrap sm:text-xl">{cfg.brand}</span>
         </Link>
         <nav aria-label="Site" className="flex items-center gap-1">
           {me ? (
@@ -81,7 +83,8 @@ export function Header() {
             </Link>
           )}
           <Link to="/add" className="btn btn-primary btn-sm">
-            Add your events
+            <span className="hidden sm:inline">Add your events</span>
+            <span className="sm:hidden">Add</span>
           </Link>
         </nav>
       </div>
@@ -110,7 +113,7 @@ export function Footer() {
   const { me } = useMe()
   return (
     <footer className="mt-12 border-t border-rule">
-      <div className="mx-auto flex max-w-3xl flex-wrap gap-x-5 gap-y-1 px-4 py-6 text-sm text-ink-soft">
+      <div className="mx-auto flex max-w-5xl flex-wrap gap-x-5 gap-y-1 px-4 py-6 text-sm text-ink-soft">
         <span>
           {cfg.brand}, run by neighbours. Events stay with the people who host them.
         </span>
