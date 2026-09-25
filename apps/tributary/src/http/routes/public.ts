@@ -169,6 +169,8 @@ function pageWindow(from: Date, to: Date, cursor: string | undefined): SQL | und
  */
 function lastCursor(rows: Array<{ e: typeof sourceEvent.$inferSelect }>, limit: number): string | null {
   if (rows.length < limit) return null
+  // Only correct because `fetchRows` orders by `(startsAt, id)`: the last row must be the
+  // greatest under the same comparison the next page's keyset uses.
   const last = rows[rows.length - 1]
   return last ? encodeCursor(last.e.startsAt, last.e.id) : null
 }
@@ -197,7 +199,12 @@ publicRoutes.get('/events', async (c) => {
       .from(sourceEvent)
       .innerJoin(host, eq(host.id, sourceEvent.hostId))
       .where(and(...guards, ...(extra ? [extra] : [])))
-    return ordered ? query.orderBy(sourceEvent.startsAt).limit(limit) : query.limit(limit)
+    // The sort must match the cursor exactly, `id` included. Ordering by `startsAt`
+    // alone leaves ties in whatever order Postgres felt like, so the last row of a page
+    // is not necessarily the largest id among the rows sharing its instant — and then
+    // the next page both repeats some of that instant and skips the rest of it. Caught
+    // by walking all 1,329 events in production and finding one shown twice.
+    return ordered ? query.orderBy(sourceEvent.startsAt, sourceEvent.id).limit(limit) : query.limit(limit)
   }
 
   // Ranking must drive the fetch, not filter it. Selecting a chronological page and then
