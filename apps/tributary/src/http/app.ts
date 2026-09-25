@@ -12,6 +12,7 @@ import { config } from '../config.js'
 import { describeError, log } from '../lib/logging.js'
 import { ApiError, authenticate, type Vars } from './context.js'
 import { authRoutes, oauthRoot } from './routes/auth.js'
+import { basemapRoutes } from './routes/basemap.js'
 import { confirmationRoutes } from './routes/confirmations.js'
 import { eventRoutes, joinRoutes } from './routes/events.js'
 import { meRoutes } from './routes/me.js'
@@ -25,24 +26,23 @@ import { inboundEmailRoutes, v1Routes, webhookRoutes } from './routes/v1.js'
 /**
  * The console's content security policy.
  *
- * Two allowances exist only for the map view, and both are named rather than loosened:
+ * `default-src 'self'` and nothing else: the page talks to this origin and no one else.
+ * The map's basemap used to need an exception here, which was a bad trade — the tile
+ * provider spread across six hostnames, so naming one of them blocked the rest, and any
+ * host named here is a host that learns the IP of every visitor who opens the map. The
+ * basemap is proxied through `/api/public/basemap` instead, so there is nothing to name.
  *
- *  - `worker-src blob:` because MapLibre runs its tile decoder in a worker it builds
- *    from a blob URL. Under a bare `default-src 'self'` the worker is refused and the
- *    map fails with nothing in the network log to explain it;
- *  - `connect-src` gains one basemap host. That host necessarily learns the IP of
- *    anyone looking at the map and roughly where they are looking, which is why the
- *    map is a separate view that loads nothing until a visitor opens it. Browsing the
- *    list and the month talks to this origin and no one else.
+ * `worker-src blob:` stays: MapLibre builds its tile decoder as a blob worker, and under
+ * a bare `default-src` the worker is refused with nothing in the network log to explain
+ * it.
  */
-const BASEMAP_ORIGIN = 'https://basemaps.cartocdn.com'
 const CSP = [
   "default-src 'self'",
   "script-src 'self'",
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob: https:",
+  "img-src 'self' data: blob:",
   "font-src 'self'",
-  `connect-src 'self' ${BASEMAP_ORIGIN}`,
+  "connect-src 'self'",
   "worker-src 'self' blob:",
   // Safari still reads workers out of child-src.
   "child-src 'self' blob:",
@@ -104,6 +104,7 @@ export function createApp(): Hono<{ Variables: Vars }> {
   api.route('/me/telegram', telegramMeRoutes)
   api.route('/join', joinRoutes)
   api.route('/public/report', reportRoutes)
+  api.route('/public/basemap', basemapRoutes)
   api.route('/steward', stewardRoutes)
   api.notFound((ctx) => ctx.json({ error: 'NotFound', message: 'Not found.' }, 404))
   app.route('/api', api)
@@ -114,6 +115,15 @@ export function createApp(): Hono<{ Variables: Vars }> {
   if (c.CONSOLE_DIST && existsSync(c.CONSOLE_DIST)) {
     const root = path.relative(process.cwd(), c.CONSOLE_DIST) || '.'
     const index = readFileSync(path.join(c.CONSOLE_DIST, 'index.html'), 'utf8')
+    // Set on the way out, for every console response. Setting it only on the SPA
+    // fallback left the home page with no policy at all: `serveStatic` answers `/` with
+    // index.html and returns, so the catch-all below never ran for it. The result was a
+    // policy that applied to deep links and not to the front door — the worst of both,
+    // since the map then worked or failed depending on which URL you arrived at.
+    app.use('/*', async (ctx, next) => {
+      await next()
+      if (!ctx.req.path.startsWith('/api/')) ctx.header('Content-Security-Policy', CSP)
+    })
     app.use('/assets/*', async (ctx, next) => {
       ctx.header('Cache-Control', 'public, max-age=31536000, immutable')
       await next()
@@ -126,7 +136,6 @@ export function createApp(): Hono<{ Variables: Vars }> {
     app.get('/assets/*', (ctx) => ctx.text('Not found.', 404))
     app.get('*', (ctx) => {
       ctx.header('Cache-Control', 'no-cache')
-      ctx.header('Content-Security-Policy', CSP)
       return ctx.html(index)
     })
   }

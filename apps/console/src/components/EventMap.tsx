@@ -14,9 +14,12 @@ import { useEffect, useRef, useState } from 'react'
 import type { Map as MapLibreMap, GeoJSONSource } from 'maplibre-gl'
 import type { PublicEvent } from '../lib/types'
 
-/** CARTO's Positron: grey land, quiet labels — it lets the pins be the only colour. */
-const LIGHT_STYLE = 'https://basemaps.cartocdn.com/gl/positron-gl-style/style.json'
-const DARK_STYLE = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json'
+/**
+ * The basemap comes from our own origin, which proxies it (see
+ * `routes/basemap.ts` for why). Grey land and quiet labels, so the pins are the only
+ * colour on the map.
+ */
+const styleUrl = (dark: boolean) => `/api/public/basemap/style.json${dark ? '?theme=dark' : ''}`
 
 export interface EventMapProps {
   events: PublicEvent[]
@@ -88,6 +91,7 @@ export function EventMap({ events, center, onPick, hrefFor }: EventMapProps) {
   useEffect(() => {
     let cancelled = false
     let created: MapLibreMap | null = null
+    let styleLoaded = false
     void (async () => {
       try {
         const [maplibre, workerUrl] = await Promise.all([
@@ -104,7 +108,7 @@ export function EventMap({ events, center, onPick, hrefFor }: EventMapProps) {
         if (cancelled || !holder.current) return
         created = new Map({
           container: holder.current,
-          style: prefersDark() ? DARK_STYLE : LIGHT_STYLE,
+          style: styleUrl(prefersDark()),
           center: [center.lon, center.lat],
           zoom: 10.5,
           attributionControl: { compact: true },
@@ -112,6 +116,7 @@ export function EventMap({ events, center, onPick, hrefFor }: EventMapProps) {
         created.addControl(new NavigationControl({ showCompass: false }), 'top-right')
         created.on('load', () => {
           if (cancelled) return
+          styleLoaded = true
           created!.addSource('events', { type: 'geojson', data: { type: 'FeatureCollection', features: [] }, cluster: true, clusterRadius: 44, clusterMaxZoom: 15 })
           created!.addLayer({ id: 'clusters', type: 'circle', source: 'events', filter: ['has', 'point_count'], paint: { 'circle-color': '#b8641a', 'circle-opacity': 0.9, 'circle-radius': ['step', ['get', 'point_count'], 15, 10, 20, 40, 27], 'circle-stroke-width': 2, 'circle-stroke-color': '#ffffff' } })
           created!.addLayer({ id: 'cluster-count', type: 'symbol', source: 'events', filter: ['has', 'point_count'], layout: { 'text-field': ['get', 'point_count_abbreviated'], 'text-size': 13, 'text-font': ['Open Sans Semibold', 'Arial Unicode MS Bold'] }, paint: { 'text-color': '#ffffff' } })
@@ -137,7 +142,16 @@ export function EventMap({ events, center, onPick, hrefFor }: EventMapProps) {
           map.current = created
           setReady(true)
         })
-        created.on('error', () => setFailed(true))
+        // MapLibre reports every recoverable hiccup on this channel — one tile that
+        // did not arrive, one font range, a request cancelled by a pan. Replacing the
+        // whole map with a failure panel on any of them meant a working map could be
+        // thrown away by a single dropped tile. Only a style that never loaded is fatal;
+        // without it there is nothing to draw.
+        created.on('error', (ev) => {
+          if (styleLoaded) return
+          console.warn('[map] the style did not load', ev)
+          setFailed(true)
+        })
       } catch {
         setFailed(true)
       }
@@ -167,7 +181,13 @@ export function EventMap({ events, center, onPick, hrefFor }: EventMapProps) {
     return (
       <div className="panel p-6 text-center">
         <h3>The map could not load</h3>
-        <p className="mt-1 text-ink-soft">The basemap comes from another server, which may be blocked or unreachable. The list and calendar views have the same events.</p>
+        <p className="mt-1 text-ink-soft">
+          The background map did not arrive. The list and calendar views have exactly the same events, or you can{' '}
+          <button type="button" className="underline underline-offset-2" onClick={() => window.location.reload()}>
+            try again
+          </button>
+          .
+        </p>
       </div>
     )
   }
