@@ -4,6 +4,7 @@
  * members, invite or held events; a gated event appears as its teaser only.
  */
 import { Hono } from 'hono'
+import { DateTime } from 'luxon'
 import { and, desc, eq, gte, inArray, lte, sql, type SQL } from 'drizzle-orm'
 import { groupDuplicates, toCard, type NormalizedEvent } from '@tributary/event-model'
 import { config } from '../../config.js'
@@ -124,6 +125,54 @@ export function publicCard(row: typeof sourceEvent.$inferSelect, h: typeof host.
   }
 }
 
+/**
+ * A keyset cursor over `(startsAt, id)`.
+ *
+ * Browsing used to answer one `limit`-sized slice and report `cursor: null`, so on a
+ * directory of nineteen hundred events a visitor saw the soonest two hundred and the
+ * calendar appeared to stop about three weeks out. The ledger held eight months.
+ *
+ * `startsAt` alone cannot be the key: twenty things start at 7pm on a Friday, and a
+ * cursor that is not unique either repeats that Friday forever or skips most of it.
+ * The ledger id breaks the tie, so every row is visited exactly once.
+ */
+export function encodeCursor(startsAt: Date, id: string): string {
+  return Buffer.from(`${startsAt.toISOString()}|${id}`, 'utf8').toString('base64url')
+}
+
+export function decodeCursor(raw: string | undefined): { startsAt: Date; id: string } | undefined {
+  if (!raw) return undefined
+  const [iso, id] = Buffer.from(raw, 'base64url').toString('utf8').split('|')
+  if (!iso || !id) return undefined
+  const startsAt = new Date(iso)
+  // A cursor is opaque to the caller, so a mangled one is a normal thing to receive.
+  // Treat it as "start from the beginning" rather than failing the whole page.
+  if (Number.isNaN(startsAt.getTime())) return undefined
+  return { startsAt, id }
+}
+
+/** The chronological page: the requested window, resumed after the cursor. */
+function pageWindow(from: Date, to: Date, cursor: string | undefined): SQL | undefined {
+  const after = decodeCursor(cursor)
+  // A row-value comparison is the whole point: `startsAt > x OR (startsAt = x AND id > y)`
+  // written out by hand reads the same but does not use the (state, starts_at) index.
+  const keyset = after ? sql`(${sourceEvent.startsAt}, ${sourceEvent.id}) > (${after.startsAt.toISOString()}::timestamptz, ${after.id})` : undefined
+  return and(gte(sourceEvent.startsAt, from), lte(sourceEvent.startsAt, to), ...(keyset ? [keyset] : []))
+}
+
+/**
+ * The cursor for the next page, or null at the end.
+ *
+ * A short page means the ledger is exhausted. A full page might also be the end, but
+ * saying "there may be more" and answering the follow-up with nothing is cheap;
+ * stopping one page early hides events, which is the bug this replaces.
+ */
+function lastCursor(rows: Array<{ e: typeof sourceEvent.$inferSelect }>, limit: number): string | null {
+  if (rows.length < limit) return null
+  const last = rows[rows.length - 1]
+  return last ? encodeCursor(last.e.startsAt, last.e.id) : null
+}
+
 publicRoutes.get('/events', async (c) => {
   const k = config()
   const region = c.req.query('region') ?? k.REGION_SLUG
@@ -131,7 +180,8 @@ publicRoutes.get('/events', async (c) => {
   const to = c.req.query('to') ? new Date(c.req.query('to')!) : new Date(Date.now() + 120 * 86_400_000)
   const category = c.req.query('category')
   const q = c.req.query('q')?.trim().toLowerCase()
-  const limit = Math.min(Number(c.req.query('limit') ?? 200), 500)
+  const limit = Math.min(Math.max(Number(c.req.query('limit') ?? 100) || 100, 1), 500)
+  const cursorParam = c.req.query('cursor') || undefined
   // `near=lat,lon` with an optional `radiusKm`. The index carries coordinates for public
   // events only — a gated event is indexed without `_geo` — so a radius search can
   // never disclose a withheld address, and there is no separate check to forget.
@@ -156,9 +206,14 @@ publicRoutes.get('/events', async (c) => {
   // nothing. Ask the index first, then read exactly those rows.
   let rows: Awaited<ReturnType<typeof fetchRows>>
   let rank: Map<string, number> | undefined
+  // The index pages by offset and the ledger pages by key, so the two produce different
+  // cursors. Both are opaque to the caller, and a cursor is only ever replayed against
+  // the same filters that produced it, so they never meet.
+  let nextCursor: string | null = null
   if (q || near) {
-    const found = await searchEvents({ q, region, category, from, to, limit, near, radiusKm })
+    const found = await searchEvents({ q, region, category, from, to, limit, near, radiusKm, cursor: cursorParam })
     if (found.available) {
+      nextCursor = found.cursor
       const ids = found.hits.map((h) => h.id)
       rank = new Map(ids.map((id, i) => [id, i]))
       rows = ids.length === 0 ? [] : await fetchRows(inArray(sourceEvent.id, ids), false)
@@ -166,16 +221,18 @@ publicRoutes.get('/events', async (c) => {
       // The index is down. A text query falls back to a substring scan of the
       // chronological page rather than showing an empty directory; a radius cannot be
       // done at all without the index, so a geo-only request degrades to that plain page.
-      const all = await fetchRows(and(gte(sourceEvent.startsAt, from), lte(sourceEvent.startsAt, to)), true)
+      const all = await fetchRows(pageWindow(from, to, cursorParam), true)
       rows = q
         ? all.filter(({ e, h }) => {
             const p = publicCard(e, h)
             return `${p.card.name} ${p.card.place ?? ''} ${p.card.excerpt ?? ''} ${p.host.displayName}`.toLowerCase().includes(q)
           })
         : all
+      nextCursor = lastCursor(all, limit)
     }
   } else {
-    rows = await fetchRows(and(gte(sourceEvent.startsAt, from), lte(sourceEvent.startsAt, to)), true)
+    rows = await fetchRows(pageWindow(from, to, cursorParam), true)
+    nextCursor = lastCursor(rows, limit)
   }
 
   // Group duplicates on the card's own fields, then carry the winner's whole event through.
@@ -194,7 +251,7 @@ publicRoutes.get('/events', async (c) => {
   // A radius with no words is browsing, not searching: put it back in time order.
   if (near && !q) cards.sort((a, b) => a.event.card.startsAt.localeCompare(b.event.card.startsAt))
   c.header('Cache-Control', 'public, max-age=60')
-  return c.json({ events: cards.map((x) => x.event), cursor: null })
+  return c.json({ events: cards.map((x) => x.event), cursor: nextCursor })
 })
 
 async function findPublicEvent(did: string, rkey: string) {
@@ -264,16 +321,54 @@ function icsEscape(s: string): string {
 function icsDate(iso: string): string {
   return new Date(iso).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z')
 }
-export function icsFor(items: Array<{ n: NormalizedEvent; uid: string; cancelled: boolean }>, name: string): string {
-  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', `PRODID:-//${config().ADAPTER_NAME}//EN`, 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', `X-WR-CALNAME:${icsEscape(name)}`]
+/** `YYYYMMDD` in the event's own zone: an all-day event is a date, not an instant. */
+function icsDateOnly(iso: string, tz: string): string {
+  return DateTime.fromISO(iso, { zone: 'utc' }).setZone(tz).toFormat('yyyyLLdd')
+}
+
+/**
+ * The subscribable feed. Google Calendar, Apple Calendar and Outlook all poll a URL
+ * like this one, so two details matter more than they look:
+ *
+ *  - an all-day event is written `VALUE=DATE`, not as a UTC instant. Written as an
+ *    instant, "all day Saturday" arrives in a reader east of us as Friday night;
+ *  - `REFRESH-INTERVAL` is the only way to ask a subscriber to come back sooner than
+ *    its own default, which in Google's case is measured in many hours.
+ */
+export function icsFor(items: Array<{ n: NormalizedEvent; uid: string; cancelled: boolean }>, name: string, opts: { url?: string } = {}): string {
+  const lines = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    `PRODID:-//${config().ADAPTER_NAME}//EN`,
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    `X-WR-CALNAME:${icsEscape(name)}`,
+    `NAME:${icsEscape(name)}`,
+    'REFRESH-INTERVAL;VALUE=DURATION:PT2H',
+    'X-PUBLISHED-TTL:PT2H',
+    ...(opts.url ? [`SOURCE;VALUE=URI:${opts.url}`, `URL:${opts.url}`] : []),
+  ]
   for (const { n, uid, cancelled } of items) {
     const l = n.locations[0]
     const place = n.visibility === 'gated' ? [l?.locality, l?.region].filter(Boolean).join(', ') : [l?.name, l?.street, l?.locality, l?.region].filter(Boolean).join(', ')
-    lines.push('BEGIN:VEVENT', `UID:${uid}`, `DTSTAMP:${icsDate(n.provenance.fetchedAt)}`, `DTSTART:${icsDate(n.start.instant)}`)
-    if (n.end) lines.push(`DTEND:${icsDate(n.end.instant)}`)
+    lines.push('BEGIN:VEVENT', `UID:${uid}`, `DTSTAMP:${icsDate(n.provenance.fetchedAt)}`)
+    if (n.start.allDay) {
+      lines.push(`DTSTART;VALUE=DATE:${icsDateOnly(n.start.instant, n.start.tz)}`)
+      // DTEND is exclusive for a date: a one-day event ends the next morning.
+      const endIso = n.end?.instant ?? n.start.instant
+      const end = DateTime.fromISO(endIso, { zone: 'utc' }).setZone(n.start.tz)
+      const exclusive = n.end ? end : end.plus({ days: 1 })
+      lines.push(`DTEND;VALUE=DATE:${exclusive.toFormat('yyyyLLdd')}`)
+    } else {
+      lines.push(`DTSTART:${icsDate(n.start.instant)}`)
+      if (n.end) lines.push(`DTEND:${icsDate(n.end.instant)}`)
+    }
     lines.push(`SUMMARY:${icsEscape(n.name)}`)
     if (place) lines.push(`LOCATION:${icsEscape(place)}`)
+    // Only an exact, public place becomes a coordinate, for the same reason the card does.
+    if (n.visibility !== 'gated' && !l?.private && l?.precision === 'exact' && l.lat !== undefined && l.lon !== undefined) lines.push(`GEO:${l.lat};${l.lon}`)
     lines.push(`URL:${n.sourceUrl}`)
+    if (n.category || n.tags.length) lines.push(`CATEGORIES:${icsEscape([n.category, ...n.tags].filter(Boolean).join(','))}`)
     if (n.descriptionMd) lines.push(`DESCRIPTION:${icsEscape(n.descriptionMd.slice(0, 2000))}`)
     if (cancelled || n.status === 'cancelled') lines.push('STATUS:CANCELLED')
     lines.push('END:VEVENT')
@@ -282,22 +377,50 @@ export function icsFor(items: Array<{ n: NormalizedEvent; uid: string; cancelled
   return lines.map((l) => (l.length > 74 ? (l.match(/.{1,73}/g) ?? [l]).join('\r\n ') : l)).join('\r\n') + '\r\n'
 }
 
-/** The regional feed; `?category=` narrows it (F17: per-region and per-category subscriptions). */
+/**
+ * The regional feed, narrowed by the same query the directory page uses: `category`,
+ * `q`, and `near`/`radiusKm`. Whatever a visitor has filtered to, they can subscribe to
+ * exactly that in Google Calendar, Apple Calendar or Outlook — the feed URL carries the
+ * filters, so the subscription keeps meaning the same thing as it refills.
+ */
 publicRoutes.get('/regions/:region/calendar.ics', async (c) => {
+  const k = config()
+  const region = c.req.param('region')
   const category = c.req.query('category')?.trim().toLowerCase()
-  const rows = await getDb()
-    .select({ e: sourceEvent, h: host })
-    .from(sourceEvent)
-    .innerJoin(host, eq(host.id, sourceEvent.hostId))
-    .where(and(eq(host.region, c.req.param('region')), eq(sourceEvent.state, 'live'), inArray(sourceEvent.visibility, PUBLIC_VIS), gte(sourceEvent.startsAt, new Date(Date.now() - 86_400_000))))
-    .orderBy(sourceEvent.startsAt)
-    .limit(1000)
+  const q = c.req.query('q')?.trim().toLowerCase()
+  const near = parseNear(c.req.query('near'))
+  const radiusKm = near ? Math.min(Math.max(Number(c.req.query('radiusKm') ?? 25) || 25, 0.1), 200) : undefined
+  const from = new Date(Date.now() - 86_400_000)
+  const to = new Date(Date.now() + 120 * 86_400_000)
+  const LIMIT = 1000
+
+  const guards = [eq(host.region, region), eq(sourceEvent.state, 'live'), inArray(sourceEvent.visibility, PUBLIC_VIS)] as const
+  const read = (extra: SQL | undefined) =>
+    getDb()
+      .select({ e: sourceEvent, h: host })
+      .from(sourceEvent)
+      .innerJoin(host, eq(host.id, sourceEvent.hostId))
+      .where(and(...guards, ...(extra ? [extra] : [])))
+      .orderBy(sourceEvent.startsAt)
+      .limit(LIMIT)
+
+  let rows: Awaited<ReturnType<typeof read>>
+  if (q || near) {
+    const found = await searchEvents({ q, region, category, from, to, limit: LIMIT, near, radiusKm })
+    rows = found.available ? (found.hits.length ? await read(inArray(sourceEvent.id, found.hits.map((x) => x.id))) : []) : await read(and(gte(sourceEvent.startsAt, from), lte(sourceEvent.startsAt, to)))
+  } else {
+    rows = await read(and(gte(sourceEvent.startsAt, from), lte(sourceEvent.startsAt, to)))
+  }
+
   const items = rows
-    .map(({ e }) => e.normalized as unknown as NormalizedEvent)
-    .filter((n) => !category || n.category === category || n.tags.includes(category))
+    .map(({ e }) => ({ n: e.normalized as unknown as NormalizedEvent, uid: `${e.id}@${new URL(k.WEB_PUBLIC_URL).hostname}`, cancelled: false }))
+    // The category chip is applied here too, so it still narrows the feed when the index
+    // answered the text half of the query.
+    .filter(({ n }) => !category || n.category === category || n.tags.includes(category))
+  const label = [k.BRAND_NAME, category, q ? `“${q}”` : undefined, near ? 'nearby' : undefined].filter(Boolean).join(' · ')
   c.header('Content-Type', 'text/calendar; charset=utf-8')
   c.header('Cache-Control', 'public, max-age=900')
-  return c.body(icsFor(rows.filter(({ e }) => items.includes(e.normalized as unknown as NormalizedEvent)).map(({ e }) => ({ n: e.normalized as unknown as NormalizedEvent, uid: `${e.id}@${new URL(config().WEB_PUBLIC_URL).hostname}`, cancelled: false })), category ? `${config().BRAND_NAME} · ${category}` : `${config().BRAND_NAME}`))
+  return c.body(icsFor(items, label, { url: `${k.WEB_PUBLIC_URL}/api/public/regions/${encodeURIComponent(region)}/calendar.ics${new URL(c.req.url).search}` }))
 })
 
 publicRoutes.get('/hosts/:handle/calendar.ics', async (c) => {
@@ -311,7 +434,7 @@ publicRoutes.get('/hosts/:handle/calendar.ics', async (c) => {
     .limit(500)
   c.header('Content-Type', 'text/calendar; charset=utf-8')
   c.header('Cache-Control', 'public, max-age=900')
-  return c.body(icsFor(rows.map((e) => ({ n: e.normalized as unknown as NormalizedEvent, uid: `${e.id}@${new URL(config().WEB_PUBLIC_URL).hostname}`, cancelled: false })), h.displayName))
+  return c.body(icsFor(rows.map((e) => ({ n: e.normalized as unknown as NormalizedEvent, uid: `${e.id}@${new URL(config().WEB_PUBLIC_URL).hostname}`, cancelled: false })), h.displayName, { url: `${config().WEB_PUBLIC_URL}/api/public/hosts/${encodeURIComponent(h.handle)}/calendar.ics` }))
 })
 
 /* ── images ─────────────────────────────────────────────────────────────────── */
