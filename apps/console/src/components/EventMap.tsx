@@ -42,6 +42,36 @@ function toFeatures(events: PublicEvent[], hrefFor: (e: PublicEvent) => string):
   return out
 }
 
+/**
+ * The box to frame, ignoring outliers.
+ *
+ * Fitting to the extremes means one stray pin decides the whole view: twenty-six events
+ * carrying a Squarespace placeholder in Manhattan once zoomed this map out to the
+ * continent, with Boulder as a dot. The pipeline drops those pins now, but a map whose
+ * usefulness depends on every coordinate being right is a map that will break again.
+ *
+ * So the frame is the 5th to 95th percentile in each axis, widened a little. Genuine
+ * far-flung events still get a pin; they just do not get to choose the zoom.
+ */
+export function frameFor(features: Feature[]): [[number, number], [number, number]] | null {
+  if (features.length === 0) return null
+  const lons = features.map((f) => f.geometry.coordinates[0]).sort((a, b) => a - b)
+  const lats = features.map((f) => f.geometry.coordinates[1]).sort((a, b) => a - b)
+  const at = (xs: number[], p: number) => xs[Math.min(xs.length - 1, Math.max(0, Math.round((xs.length - 1) * p)))]!
+  // Under about twenty pins a percentile is not a percentile; use the extremes.
+  const [lo, hi] = features.length < 20 ? [0, 1] : [0.05, 0.95]
+  const west = at(lons, lo)
+  const east = at(lons, hi)
+  const south = at(lats, lo)
+  const north = at(lats, hi)
+  // A single point, or a row of points on one street, has no area to fit.
+  const pad = 0.01
+  return [
+    [west - pad, south - pad],
+    [east + pad, north + pad],
+  ]
+}
+
 function prefersDark(): boolean {
   return typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches
 }
@@ -128,24 +158,9 @@ export function EventMap({ events, center, onPick, hrefFor }: EventMapProps) {
     const src = map.current.getSource('events') as GeoJSONSource | undefined
     src?.setData({ type: 'FeatureCollection', features } as never)
     if (features.length === 0) return
-    let west = 180
-    let south = 90
-    let east = -180
-    let north = -90
-    for (const f of features) {
-      const [lon, lat] = f.geometry.coordinates
-      west = Math.min(west, lon)
-      east = Math.max(east, lon)
-      south = Math.min(south, lat)
-      north = Math.max(north, lat)
-    }
-    map.current.fitBounds(
-      [
-        [west, south],
-        [east, north],
-      ],
-      { padding: 56, maxZoom: 14, duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 600 },
-    )
+    const bounds = frameFor(features)
+    if (!bounds) return
+    map.current.fitBounds(bounds, { padding: 56, maxZoom: 14, duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 600 })
   }, [events, ready, hrefFor])
 
   if (failed) {

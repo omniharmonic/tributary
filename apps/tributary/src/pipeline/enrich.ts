@@ -45,6 +45,31 @@ export function localizeZone(e: NormalizedEvent, regionTz: string): NormalizedEv
 }
 
 
+/**
+ * Throw away a coordinate that cannot be in this region.
+ *
+ * A source's own latitude and longitude are normally the best thing we have, and
+ * geocoding never overrides them. But some platforms ship a placeholder: every event on
+ * one Squarespace calendar arrived carrying 40.7207559, -74.0007613 — Squarespace's own
+ * address in lower Manhattan — for venues that are all in Boulder. Twenty-six listings
+ * pinned to New York, and a map that zoomed out to the whole United States to hold them.
+ *
+ * A coordinate 1,700 miles outside the region we serve is not a coordinate, it is a
+ * default nobody filled in. Dropping it keeps the venue's name and address, which are
+ * real, and lets the geocoding cascade below do its job on them.
+ *
+ * The words are never touched. This only ever removes a pin.
+ */
+export function dropStrayPin(e: NormalizedEvent): NormalizedEvent {
+  const l = e.locations[0]
+  if (!l || l.lat === undefined || l.lon === undefined) return e
+  if (inFrontRange(l.lat, l.lon)) return e
+  // `precision` describes the address, which is unchanged; only the pin is gone, and a
+  // location without lat/lon is already "unpinned" everywhere downstream.
+  const { lat: _lat, lon: _lon, ...rest } = l
+  return { ...e, locations: [rest, ...e.locations.slice(1)] }
+}
+
 export interface EnrichOptions {
   /** Skip page fetches (preview mode fetches at most this many pages). */
   pageBudget?: number
@@ -101,6 +126,7 @@ export async function enrich(events: NormalizedEvent[], opts: EnrichOptions = {}
       // Places: the gazetteer first because it is free and also corrects the name and
       // address, then Photon on the parsed street, then Photon on the raw string.
       if (e.mode !== 'virtual' && e.locations.length > 0) {
+        e = dropStrayPin(e)
         const l = e.locations[0]!
         const text = [l.name, l.street, l.locality].filter(Boolean).join(', ')
         if (text) {
