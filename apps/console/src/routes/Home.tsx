@@ -8,7 +8,7 @@
  * filters to their calendar app.
  */
 import { Link, useNavigate, useSearch } from '@tanstack/react-router'
-import { useInfiniteQuery } from '@tanstack/react-query'
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { lazy, Suspense, useMemo, useState } from 'react'
 import { api } from '../lib/api'
 import { BUCKET_LABEL, bucketFor, dayKey, dayParts, dayWindow, gridWindow, monthGrid, thisMonth, windowFor, type Bucket } from '../lib/dates'
@@ -78,6 +78,29 @@ export function HomeRoute() {
   })
   const events = useMemo(() => query.data?.pages.flatMap((p) => p.events) ?? [], [query.data])
 
+  // Day counts are asked for separately and counted over the whole ledger. Deriving them
+  // from `events` made the strip claim a day was empty whenever the page had not paged
+  // that far yet — the one thing a count must never do. A text or radius search is the
+  // exception: those are ranked result sets rather than a window, so there the strip
+  // falls back to what was returned, which for a search is the whole answer.
+  const countWindow = search.day || view === 'calendar' ? win : undefined
+  const isSearch = !!(search.q || search.near)
+  const countsQuery = useQuery({
+    queryKey: keys.publicEventCounts({ region: cfg.region.slug, category: search.category, from: countWindow?.from, to: countWindow?.to }),
+    queryFn: () => api.publicEventCounts({ region: cfg.region.slug, category: search.category, from: countWindow?.from, to: countWindow?.to }),
+    enabled: !isSearch,
+    staleTime: 120_000,
+  })
+  const counts = useMemo(() => {
+    if (!isSearch && countsQuery.data) return countsQuery.data.days
+    const out: Record<string, number> = {}
+    for (const e of events) {
+      const k = dayKey(e.card.startsAt, tz)
+      out[k] = (out[k] ?? 0) + 1
+    }
+    return out
+  }, [isSearch, countsQuery.data, events, tz])
+
   const hrefFor = (e: PublicEvent) => `/e/${encodeURIComponent(e.did)}/${encodeURIComponent(e.rkey ?? '')}`
   const feedPath = useMemo(() => {
     const p = new URLSearchParams()
@@ -121,7 +144,7 @@ export function HomeRoute() {
               </Link>
             </div>
           </div>
-          <WeekStrip events={events} tz={tz} selected={search.day} onDay={(day) => go({ day, when: undefined })} />
+          <WeekStrip counts={counts} tz={tz} selected={search.day} onDay={(day) => go({ day, when: undefined })} />
         </section>
 
         <div className="filters">
@@ -150,7 +173,10 @@ export function HomeRoute() {
           </div>
         </div>
 
-        <div className="mb-6 flex flex-wrap items-center gap-2" role="group" aria-label="Filters">
+        {/* When and where sit on their own row in the bordered chip; what it is, on a
+            quieter second row. Two kinds of filter that looked identical apart from a
+            divider now read as two kinds of filter. */}
+        <div className="mb-2 flex flex-wrap items-center gap-2" role="group" aria-label="When">
           {(Object.keys(BUCKET_LABEL) as Bucket[]).map((b) => (
             <button key={b} type="button" className="chip" aria-pressed={search.when === b} onClick={() => go({ when: search.when === b ? undefined : b, day: undefined })}>
               {BUCKET_LABEL[b]}
@@ -159,19 +185,18 @@ export function HomeRoute() {
           <button type="button" className="chip" aria-pressed={!!search.near} onClick={nearMe} disabled={locating}>
             {locating ? 'Finding you…' : search.near ? `Within ${search.radiusKm ?? 15} km` : 'Near me'}
           </button>
-          <span className="mx-1 self-center text-rule" aria-hidden="true">
-            |
-          </span>
-          {CATEGORIES.map((cat) => (
-            <button key={cat} type="button" className="chip" aria-pressed={search.category === cat} onClick={() => go({ category: search.category === cat ? undefined : cat })}>
-              {cat}
-            </button>
-          ))}
           {search.day || search.when || search.category || search.q || search.near ? (
             <button type="button" className="btn btn-quiet btn-sm" onClick={() => void navigate({ to: '/', search: { view: search.view } })}>
               Clear filters
             </button>
           ) : null}
+        </div>
+        <div className="mb-6 flex flex-wrap items-center gap-1.5" role="group" aria-label="Kind of event">
+          {CATEGORIES.map((cat) => (
+            <button key={cat} type="button" className="chip chip-quiet" aria-pressed={search.category === cat} onClick={() => go({ category: search.category === cat ? undefined : cat })}>
+              {cat}
+            </button>
+          ))}
         </div>
 
         <PageState
@@ -187,24 +212,29 @@ export function HomeRoute() {
           }
         >
           {view === 'calendar' ? (
-            <CalendarGrid month={month} tz={tz} events={events} selected={search.day} loading={query.isFetching} onMonth={(m) => go({ month: m, day: undefined })} onDay={(day) => go({ day })} />
+            <CalendarGrid month={month} tz={tz} events={events} counts={counts} selected={search.day} loading={query.isFetching} onMonth={(m) => go({ month: m, day: undefined })} onDay={(day) => go({ day })} />
           ) : view === 'map' ? (
             <Suspense fallback={<div className="map-holder map-holder-loading" aria-label="Loading the map" />}>
               <EventMap events={events} center={REGION_CENTER} hrefFor={hrefFor} onPick={(ids) => go({ q: undefined, day: undefined, ...pickOne(events, ids) })} />
             </Suspense>
           ) : null}
 
-          {view === 'map' ? null : <Listing events={events} tz={tz} signedIn={!!me} grouped={view === 'list' && !search.day} />}
+          {/* The list is the list view. Under the month, only a picked day opens — a grid
+              with five hundred cards stacked under it is a list with extra steps. */}
+          {view === 'list' ? <Listing events={events} tz={tz} signedIn={!!me} grouped={!search.day} /> : null}
+          {view === 'calendar' && search.day ? (
+            <div className="mt-8">
+              <Listing events={events.filter((e) => dayKey(e.card.startsAt, tz) === search.day)} tz={tz} signedIn={!!me} grouped={false} />
+            </div>
+          ) : null}
 
-          {view === 'calendar' && search.day ? <Listing events={events.filter((e) => dayKey(e.card.startsAt, tz) === search.day)} tz={tz} signedIn={!!me} grouped={false} /> : null}
-
-          {query.hasNextPage ? (
+          {view === 'list' && query.hasNextPage ? (
             <div className="mt-8 flex justify-center">
               <button type="button" className="btn" onClick={() => void query.fetchNextPage()} disabled={query.isFetchingNextPage}>
                 {query.isFetchingNextPage ? 'Loading…' : 'Show more events'}
               </button>
             </div>
-          ) : events.length > 0 ? (
+          ) : view === 'list' && events.length > 0 ? (
             <p className="mt-8 text-center text-sm text-ink-faint">That is everything we know about for now.</p>
           ) : null}
         </PageState>
@@ -283,7 +313,10 @@ export function DayLedger({ events, tz, signedIn }: { events: PublicEvent[]; tz:
                 <EventCard
                   key={`${e.did}/${e.rkey ?? e.card.key}`}
                   card={e.card}
-                  hostName={e.host.displayName}
+                  // The curator publishes all 55 listed calendars, so its name on every
+                  // card is a word that never varies. The source badge already says where
+                  // the listing came from.
+                  hostName={e.host.provenanceLevel === 'listed' ? undefined : e.host.displayName}
                   provenance={e.host.provenanceLevel}
                   audienceName={e.audienceName}
                   href={`/e/${encodeURIComponent(e.did)}/${encodeURIComponent(e.rkey ?? '')}`}

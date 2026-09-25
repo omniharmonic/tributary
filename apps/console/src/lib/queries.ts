@@ -76,4 +76,5 @@ export const keys = {
   events: (params: Record<string, string | undefined>) => ['events', params] as const,
   confirmations: ['confirmations'] as const,
   publicEvents: (params: Record<string, string | undefined>) => ['public-events', params] as const,
+  publicEventCounts: (params: Record<string, string | undefined>) => ['public-event-counts', params] as const,
 }

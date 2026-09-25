@@ -352,3 +352,14 @@ img { display: block; max-width: 100%; }
 }
 .map-holder-loading { background: var(--c-surface-2); }
 .maplibregl-map { font: inherit; }
+
+/* A category is a quieter kind of filter than a time or a place, and should not look
+   like the same control with a different word in it. */
+.chip-quiet { border-color: transparent; background: var(--c-surface-2); color: var(--c-ink-soft); }
+.chip-quiet:hover { color: var(--c-ink); }
+.chip-quiet[aria-pressed='true'] { background: var(--c-pine); color: var(--c-surface); }
+
+/* A day that has already happened is still worth showing in a month — that is what a
+   month is — but it is not what anyone came for. */
+.cal-cell[data-past] .cal-num { color: var(--c-ink-faint); }
+.cal-cell[data-past] .cal-items { opacity: 0.55; }

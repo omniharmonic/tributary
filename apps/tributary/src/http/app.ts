@@ -22,6 +22,35 @@ import { sourceRoutes } from './routes/sources.js'
 import { internalRoutes } from './routes/internal.js'
 import { inboundEmailRoutes, v1Routes, webhookRoutes } from './routes/v1.js'
 
+/**
+ * The console's content security policy.
+ *
+ * Two allowances exist only for the map view, and both are named rather than loosened:
+ *
+ *  - `worker-src blob:` because MapLibre runs its tile decoder in a worker it builds
+ *    from a blob URL. Under a bare `default-src 'self'` the worker is refused and the
+ *    map fails with nothing in the network log to explain it;
+ *  - `connect-src` gains one basemap host. That host necessarily learns the IP of
+ *    anyone looking at the map and roughly where they are looking, which is why the
+ *    map is a separate view that loads nothing until a visitor opens it. Browsing the
+ *    list and the month talks to this origin and no one else.
+ */
+const BASEMAP_ORIGIN = 'https://basemaps.cartocdn.com'
+const CSP = [
+  "default-src 'self'",
+  "script-src 'self'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob: https:",
+  "font-src 'self'",
+  `connect-src 'self' ${BASEMAP_ORIGIN}`,
+  "worker-src 'self' blob:",
+  // Safari still reads workers out of child-src.
+  "child-src 'self' blob:",
+  "frame-ancestors 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+].join('; ')
+
 export function createApp(): Hono<{ Variables: Vars }> {
   const app = new Hono<{ Variables: Vars }>()
   const c = config()
@@ -92,7 +121,7 @@ export function createApp(): Hono<{ Variables: Vars }> {
     app.use('/*', serveStatic({ root }))
     app.get('*', (ctx) => {
       ctx.header('Cache-Control', 'no-cache')
-      ctx.header('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'")
+      ctx.header('Content-Security-Policy', CSP)
       return ctx.html(index)
     })
   }

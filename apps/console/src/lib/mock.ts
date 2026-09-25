@@ -198,6 +198,17 @@ export const mockApi: Api = {
     if (q) list = list.filter((e) => `${e.card.name} ${e.host.displayName} ${e.card.place ?? ''}`.toLowerCase().includes(q.toLowerCase()))
     return { events: list.map((e) => (e.card.visibility === 'gated' && me ? { ...e, audienceName: 'confirmed guests' } : e)), cursor: null }
   },
+  async publicEventCounts({ category }) {
+    await delay()
+    const days: Record<string, number> = {}
+    for (const e of publicEvents) {
+      if (e.card.visibility !== 'public') continue
+      if (category && e.card.category !== category) continue
+      const day = e.card.startsAt.slice(0, 10)
+      days[day] = (days[day] ?? 0) + 1
+    }
+    return { days }
+  },
   async publicEvent(did, rkey) {
     await delay()
     const e = publicEvents.find((x) => x.did === did && x.rkey === rkey)

@@ -6,32 +6,29 @@
  * counts, and it doubles as the fastest control on the page — the question most visitors
  * arrive with is "what is on Thursday", and this answers it in one click.
  *
- * The counts come from the same page of events the list below renders, so the strip can
- * never claim a day has something the page cannot show.
+ * The counts are asked for on their own and counted over the whole ledger. Deriving them
+ * from the loaded page made the strip say "nothing on Wednesday" while thirty things were
+ * listed, simply because the page had not reached Wednesday — which is the one thing a
+ * count must never do.
  */
-import { dayKey, weekAhead } from '../lib/dates'
-import type { PublicEvent } from '../lib/types'
+import { weekAhead } from '../lib/dates'
 
 export interface WeekStripProps {
-  events: PublicEvent[]
+  /** `YYYY-MM-DD` to a count, from the server. */
+  counts: Record<string, number>
   tz: string
   selected?: string
   onDay: (iso: string | undefined) => void
 }
 
-export function WeekStrip({ events, tz, selected, onDay }: WeekStripProps) {
+export function WeekStrip({ counts, tz, selected, onDay }: WeekStripProps) {
   const days = weekAhead(tz)
-  const counts = new Map<string, number>()
-  for (const e of events) {
-    const k = dayKey(e.card.startsAt, tz)
-    counts.set(k, (counts.get(k) ?? 0) + 1)
-  }
-  const busiest = Math.max(1, ...days.map((d) => counts.get(d.iso) ?? 0))
+  const busiest = Math.max(1, ...days.map((d) => counts[d.iso] ?? 0))
 
   return (
     <div className="week-strip" role="group" aria-label="The week ahead">
       {days.map((d) => {
-        const n = counts.get(d.iso) ?? 0
+        const n = counts[d.iso] ?? 0
         return (
           <button
             key={d.iso}

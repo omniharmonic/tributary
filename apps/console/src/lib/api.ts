@@ -79,6 +79,8 @@ async function call<T>(method: Method, path: string, body?: unknown, init: { for
 export interface Api {
   publicConfig(): Promise<PublicConfig>
   publicEvents(params: { region: string; from?: string; to?: string; category?: string; q?: string; near?: string; radiusKm?: string; limit?: number; cursor?: string }): Promise<{ events: PublicEvent[]; cursor?: string | null }>
+  /** How many events fall on each `YYYY-MM-DD`, counted over everything, not the loaded page. */
+  publicEventCounts(params: { region: string; from?: string; to?: string; category?: string }): Promise<{ days: Record<string, number> }>
   publicEvent(did: string, rkey: string): Promise<PublicEvent>
   requestPlace(did: string, rkey: string): Promise<{ state: 'pending' | 'approved' }>
   publicHost(handle: string): Promise<{ host: PublicHost; events: PublicEvent[] }>
@@ -162,6 +164,7 @@ const qs = (o: Record<string, string | number | undefined>) => {
 export const realApi: Api = {
   publicConfig: () => call('GET', '/api/public/config'),
   publicEvents: (params) => call('GET', `/api/public/events${qs(params)}`),
+  publicEventCounts: (params) => call('GET', `/api/public/events/counts${qs(params)}`),
   publicEvent: (did, rkey) => call('GET', `/api/public/events/${encodeURIComponent(did)}/${encodeURIComponent(rkey)}`),
   requestPlace: (did, rkey) => call('POST', `/api/public/events/${encodeURIComponent(did)}/${encodeURIComponent(rkey)}/request`, {}),
   publicHost: (handle) => call('GET', `/api/public/hosts/${encodeURIComponent(handle)}`),

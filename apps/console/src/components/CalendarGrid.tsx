@@ -19,13 +19,15 @@ export interface CalendarGridProps {
   month: string
   tz: string
   events: PublicEvent[]
+  /** `YYYY-MM-DD` to a count over the whole ledger, so a cell's total is never short. */
+  counts: Record<string, number>
   selected?: string
   onMonth: (month: string) => void
   onDay: (iso: string | undefined) => void
   loading?: boolean
 }
 
-export function CalendarGrid({ month, tz, events, selected, onMonth, onDay, loading }: CalendarGridProps) {
+export function CalendarGrid({ month, tz, events, counts, selected, onMonth, onDay, loading }: CalendarGridProps) {
   const days = monthGrid(month, tz)
   const byDay = new Map<string, PublicEvent[]>()
   for (const e of events) {
@@ -57,16 +59,16 @@ export function CalendarGrid({ month, tz, events, selected, onMonth, onDay, load
           </div>
         ))}
         {days.map((d) => (
-          <Cell key={d.iso} day={d} tz={tz} events={byDay.get(d.iso) ?? []} selected={selected === d.iso} onDay={onDay} />
+          <Cell key={d.iso} day={d} tz={tz} events={byDay.get(d.iso) ?? []} total={counts[d.iso] ?? (byDay.get(d.iso)?.length ?? 0)} selected={selected === d.iso} onDay={onDay} />
         ))}
       </div>
     </section>
   )
 }
 
-function Cell({ day, tz, events, selected, onDay }: { day: GridDay; tz: string; events: PublicEvent[]; selected: boolean; onDay: (iso: string | undefined) => void }) {
+function Cell({ day, tz, events, total, selected, onDay }: { day: GridDay; tz: string; events: PublicEvent[]; total: number; selected: boolean; onDay: (iso: string | undefined) => void }) {
   const shown = events.slice(0, SHOWN_PER_DAY)
-  const rest = events.length - shown.length
+  const rest = Math.max(total, events.length) - shown.length
   const label = DateTime.fromISO(day.iso, { zone: tz }).toFormat('cccc d LLLL')
   return (
     <button
@@ -75,10 +77,11 @@ function Cell({ day, tz, events, selected, onDay }: { day: GridDay; tz: string; 
       data-out={!day.inMonth || undefined}
       data-today={day.isToday || undefined}
       data-weekend={day.isWeekend || undefined}
+      data-past={day.isPast || undefined}
       data-selected={selected || undefined}
-      data-empty={events.length === 0 || undefined}
+      data-empty={total === 0 || undefined}
       aria-pressed={selected}
-      aria-label={events.length ? `${label}, ${events.length} events` : `${label}, nothing listed`}
+      aria-label={total ? `${label}, ${total} events` : `${label}, nothing listed`}
       onClick={() => onDay(selected ? undefined : day.iso)}
     >
       <span className="cal-num">{day.day}</span>

@@ -261,6 +261,55 @@ publicRoutes.get('/events', async (c) => {
   return c.json({ events: cards.map((x) => x.event), cursor: nextCursor })
 })
 
+/**
+ * How many events fall on each day, for the week strip and the month grid.
+ *
+ * The strip used to count whatever the page had loaded, which made it quietly lie: with
+ * a hundred events loaded it reported "nothing on Wednesday" while thirty things were
+ * listed, because the page simply had not reached Wednesday yet. A count is either
+ * counted over everything or it is not a count.
+ *
+ * Grouping happens in the region's own zone, so "Friday" means the Friday a reader in
+ * Boulder is looking at, not a UTC day that starts at 6pm on Thursday.
+ */
+publicRoutes.get('/events/counts', async (c) => {
+  const k = config()
+  const region = c.req.query('region') ?? k.REGION_SLUG
+  const from = c.req.query('from') ? new Date(c.req.query('from')!) : new Date(Date.now() - 3 * 3_600_000)
+  const to = c.req.query('to') ? new Date(c.req.query('to')!) : new Date(Date.now() + 120 * 86_400_000)
+  const category = c.req.query('category')
+  const tz = k.REGION_TZ
+  if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) throw new ApiError(400, 'InvalidInput', 'from and to must be dates.')
+
+  const rows = await getDb()
+    .select({
+      day: sql<string>`to_char(${sourceEvent.startsAt} at time zone ${tz}, 'YYYY-MM-DD')`,
+      n: sql<number>`count(*)::int`,
+    })
+    .from(sourceEvent)
+    .innerJoin(host, eq(host.id, sourceEvent.hostId))
+    .where(
+      and(
+        eq(host.region, region),
+        inArray(sourceEvent.state, ['live', 'cancelled']),
+        inArray(sourceEvent.visibility, PUBLIC_VIS),
+        gte(sourceEvent.startsAt, from),
+        lte(sourceEvent.startsAt, to),
+        // The category chip matches an assigned category or any source tag, exactly as
+        // the listing does, so the count and the list can never disagree.
+        // `jsonb_exists` rather than the `?` operator: a bare `?` in a query string is too
+        // easy to mistake for a placeholder by anything that rewrites SQL on the way past.
+        ...(category ? [sql`(${sourceEvent.normalized}->>'category' = ${category} or jsonb_exists(${sourceEvent.normalized}->'tags', ${category}))`] : []),
+      ),
+    )
+    .groupBy(sql`1`)
+
+  const days: Record<string, number> = {}
+  for (const r of rows) days[r.day] = Number(r.n)
+  c.header('Cache-Control', 'public, max-age=120')
+  return c.json({ days })
+})
+
 async function findPublicEvent(did: string, rkey: string) {
   const rows = await getDb()
     .select({ e: sourceEvent, h: host })
