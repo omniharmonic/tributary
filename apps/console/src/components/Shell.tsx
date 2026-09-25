@@ -64,7 +64,7 @@ export function Header() {
             lines beside a squashed icon, which is the first thing anyone saw on a phone. */}
         <Link to="/" className="flex min-w-0 items-center gap-2 no-underline">
           <Flatirons className="shrink-0 text-ochre" />
-          <span className="truncate font-serif text-[1.0625rem] whitespace-nowrap sm:text-xl">{cfg.brand}</span>
+          <span className="truncate font-serif text-[clamp(0.9rem,3.7vw,1.25rem)] whitespace-nowrap">{cfg.brand}</span>
         </Link>
         <nav aria-label="Site" className="flex items-center gap-1">
           {me ? (
