@@ -114,6 +114,51 @@ the sources already connected, and `--url` seeds one address without a file.
 - **Google Calendar API key**: `GOOGLE_API_KEY` enables the incremental `syncToken` path; without it public calendars are read as `basic.ics`.
 - **Inbound email**: a Cloudflare Email Worker on `in.boulderevents.directory` posting to `/api/inbound/email` signed with `INBOUND_EMAIL_SECRET`. Not yet deployed.
 
+## Mail: moving the directory onto its own Resend domain
+
+The directory sends as `hello@freeskool.xyz`, which is Free School's domain. Its own
+Resend domain `boulderevents.directory` exists and three of its four DNS records are
+published and resolving: the DKIM `TXT` at `resend._domainkey`, the SPF `TXT` at `send`,
+and the `CNAME` at `rsend`.
+
+**The fourth is blocked at the registrar and needs a human.** Resend wants an `MX` at
+`send` pointing to `feedback-smtp.us-east-1.amazonses.com` (priority 10) — the
+Return-Path that carries bounces. Namecheap's Email Forwarding currently owns the MX
+records for this zone: the apex resolves to `eforward1..5.registrar-servers.com`, and
+while that is the domain's mail setting, the API refuses every custom MX and reports a
+gateway conflict. Passing `force` gets a success back and the record still does not
+appear in the zone.
+
+To finish:
+
+1. Namecheap → Domain List → `boulderevents.directory` → Advanced DNS → **Mail Settings**,
+   change *Email Forwarding* to **Custom MX**. This turns off any forwarding addresses on
+   the domain, so check nothing depends on them first.
+2. Add `MX send → feedback-smtp.us-east-1.amazonses.com`, priority 10.
+3. Re-run verification for the domain in Resend; it should go `verified` within minutes.
+4. On the box, in `/opt/tributary/infra/production/.env`, set the sending key that was
+   minted for this domain (Resend key `boulderevents-directory-production`, send-only and
+   scoped to `boulderevents.directory`) and switch the two from-addresses:
+
+   ```
+   SMTP_URL=smtps://resend:<the key>@smtp.resend.com:2465
+   MAIL_FROM=Boulder Events Directory <hello@boulderevents.directory>
+   PDS_EMAIL_FROM=hello@boulderevents.directory
+   ```
+
+5. `docker compose --env-file … up -d --no-deps tributary directory-pds` and send yourself
+   a sign-in link to check it.
+
+Do these together. The new key is scoped to `boulderevents.directory` alone, so setting
+it while the from-addresses still say `freeskool.xyz` stops mail entirely rather than
+falling back.
+
+`INBOUND_EMAIL_DOMAIN` is still `in.freeskool.directory` and no inbound worker exists.
+Resend can receive as well as send, which would replace the planned Cloudflare worker,
+but receiving needs MX on the apex — the same registrar toggle — and a webhook wired to
+`/api/inbound/email`. Nothing points mail at the directory today, which is the right
+state to be in while that is true: no MX means a bounce, and a bounce is honest.
+
 ## The Spaces alpha lab
 
 `infra/spaces-alpha-lab` from Free School is the basis; not deployed on this box (staging only, amd64).

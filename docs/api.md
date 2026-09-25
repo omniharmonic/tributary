@@ -198,9 +198,25 @@ Public (and only public) events from every host in the region, each as `{ card: 
 
 `near=lat,lon` limits results to a radius, `radiusKm` sets it (default 25, bounded 0.1 to 200). A malformed pair is ignored rather than rejected, so the request simply browses. Only public events carry coordinates in the index, so a radius can never surface an address a gated event is withholding. A radius with no `q` is browsing, so those results stay in start-time order rather than by relevance.
 
+`cursor` pages the result. Browsing pages by a keyset over `(startsAt, id)` and searching
+pages by offset; both are opaque, and a cursor is only ever replayed against the filters
+that produced it. `cursor: null` means the end. `limit` defaults to 100 and is capped at
+500. **Follow the cursor**: a single page is a page, not the whole directory.
+
 ```
 GET /api/public/events?near=40.0150,-105.2705&radiusKm=5&q=music
+GET /api/public/events?limit=200&cursor=MjAyNi0wOS0zMFQwMDowMDowMC4wMDBafHNldl8…
 ```
+
+`card.geo` is `{ lat, lon }` and is present only when `card.placeCoarse` is false — the
+same test that decides whether the card prints a street address, so an event that is
+withholding its location is never mappable.
+
+### `GET /api/public/events/counts?region=&from=&to=&category=`
+`{ days: { "2026-09-25": 34, … } }` — how many public events fall on each day, counted
+over the whole ledger and grouped in the region's own zone. This exists because a count
+derived from one page of events is not a count: it reports an empty Wednesday whenever
+the caller has not paged that far.
 
 ### `GET /api/public/events/:did/:rkey`
 One public event (or `404`, byte-identical for not-found and not-permitted).
@@ -208,8 +224,18 @@ One public event (or `404`, byte-identical for not-found and not-permitted).
 ### `GET /api/public/hosts/:handle`
 A host's public profile and public events.
 
-### `GET /api/public/regions/:region/calendar.ics?category=`
-Public events as a `text/calendar` feed; `category` narrows it to one category or tag. `GET /api/public/hosts/:handle/calendar.ics` per host.
+### `GET /api/public/regions/:region/calendar.ics?category=&q=&near=&radiusKm=`
+Public events as a `text/calendar` feed, narrowed by the same filters as the page above,
+so a visitor can subscribe to exactly the view they are looking at. `GET
+/api/public/hosts/:handle/calendar.ics` is the per-host feed.
+
+All-day events are written `VALUE=DATE` rather than as UTC instants, so "all day
+Saturday" does not arrive as Friday night for a reader east of the region. The feed
+carries `REFRESH-INTERVAL`/`X-PUBLISHED-TTL` of two hours, which is the only way to ask a
+subscriber to poll sooner than its own default. `GEO` is emitted under the same rule as
+`card.geo`. Any client that reads iCalendar works; Apple Calendar wants the URL with the
+`webcal:` scheme, Google and Outlook take it as a query parameter on their add-by-URL
+pages.
 
 ### `GET /api/public/img/:did/:cid`
 The image proxy: fetches `getBlob` from the repo's PDS, re-encodes, caches forever by CID.

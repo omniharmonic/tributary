@@ -69,7 +69,7 @@ retention, a privacy leak check, relay health and a search reindex.
 
 ---
 
-## Four ways to plug in
+## Five ways to plug in
 
 ### 1. Read the directory
 
@@ -85,9 +85,17 @@ curl 'https://boulderevents.directory/api/public/events?q=live%20music'
 # Everything within 5km of the Pearl Street Mall
 curl 'https://boulderevents.directory/api/public/events?near=40.0176,-105.2797&radiusKm=5'
 
-# A calendar subscription, for a phone or a website
-curl 'https://boulderevents.directory/api/public/regions/boulder/calendar.ics'
+# A calendar subscription, for a phone or a website. Any filter above works here too,
+# so this is "live music in Boulder", refreshed by the reader's own calendar app.
+curl 'https://boulderevents.directory/api/public/regions/boulder/calendar.ics?q=live%20music'
+
+# How many events fall on each day, counted over everything rather than one page
+curl 'https://boulderevents.directory/api/public/events/counts'
 ```
+
+Results are paged. Follow `cursor` until it comes back `null`; a single response is a
+page, not the directory. `card.geo` carries `{ lat, lon }` for anything you want to put
+on a map, and is absent whenever the card is withholding an exact location.
 
 Each event comes back as `{ card, host, did, rkey, atUri, audienceName, alsoOn }`. The
 `card` is the same `EventCard` the host saw before publishing and the same one our own
@@ -155,7 +163,31 @@ fourth dialect.
 `rsvpMode: "external_only"` matters: we are an adapter, not a ticketing system. Every card
 sends the reader back to the organiser's own page.
 
-### 3. Push events in
+### 3. Point us at your own repo
+
+If you already keep `community.lexicon.calendar.event` records in your repo, the
+directory can list them where they are. Sign in with your handle and it connects your
+repo as a source; or paste a handle into the one-box and it reads anyone's public
+calendar, which needs no authorisation at all because `listRecords` is public.
+
+```sh
+# The same thing the connector does
+curl 'https://boulderevents.directory/api/detect' -H 'content-type: application/json' \
+  -d '{"input":"@alice.example.com"}'
+```
+
+Two rules make this safe to run against a repo we also publish into:
+
+- a record carrying `additionalData.externalSource` is another adapter's mirror of an
+  event that lives elsewhere, so it is skipped. Every record we write carries it, which
+  is what stops the directory from re-reading its own output;
+- when the repo is yours, the directory **adopts** your record rather than writing a
+  second copy of it, and never deletes a record it did not write. Making an event
+  unlisted, or removing it from the directory, leaves your repo exactly as you left it.
+
+`preferences.showInDiscovery: false` is honoured: that record stays out of the directory.
+
+### 4. Push events in
 
 If you are building something that produces events — a booking system, a venue's
 back-end, an agent — there are five doors, all landing in the same pipeline.
@@ -189,7 +221,7 @@ confirmation.
 Anything we inferred rather than read — a flyer, a sentence, an unstructured page — goes
 to a confirmation queue first. That is a rule, not a setting.
 
-### 4. Write a connector
+### 5. Write a connector
 
 A connector is one interface and the runtime does everything else: scheduling,
 politeness, retries, conditional GETs, storage, reconciliation, publishing. It is MIT
