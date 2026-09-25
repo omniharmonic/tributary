@@ -150,25 +150,52 @@ function stateFor(e: NormalizedEvent): EventRow['state'] {
 }
 
 /**
+ * The record this event already is, when it is one of the host's own.
+ *
+ * An `atproto` source reads `community.lexicon.calendar.event` records straight out of
+ * somebody's repo. When that repo is the host's own, the record the directory would
+ * "publish" already exists, written by them — so we adopt its URI instead of writing a
+ * second copy. Without this, every sync would mirror their calendar back into their own
+ * repo and the person would watch their events double.
+ *
+ * It also decides the other half: a record we did not write is a record we never delete.
+ * Narrowing an adopted event to unlisted, or losing it from the feed, takes it out of the
+ * directory and leaves their repo exactly as they left it.
+ */
+function adoptedUri(h: HostRow, s: SourceRow, externalId: string): string | null {
+  if (s.type !== 'atproto') return null
+  const cfg = (s.config ?? {}) as { did?: unknown; collection?: unknown }
+  if (typeof cfg.did !== 'string' || cfg.did !== h.did) return null
+  const collection = typeof cfg.collection === 'string' && cfg.collection ? cfg.collection : 'community.lexicon.calendar.event'
+  return `at://${cfg.did}/${collection}/${externalId}`
+}
+
+/**
  * Put an event where its level says it goes, tearing down whatever an older placement
  * left behind. Returns the ledger fields to store.
  */
 async function place(h: HostRow, s: SourceRow, e: NormalizedEvent, existing: EventRow | null): Promise<Partial<EventRow>> {
   const c = config()
-  const rkey = existing?.rkey ?? tid()
+  const adopted = adoptedUri(h, s, e.identity.externalId)
+  // An adopted record keeps the rkey its author gave it, so the ledger and the repo agree.
+  const rkey = adopted ? e.identity.externalId : (existing?.rkey ?? tid())
   const level = e.visibility
   const needsPublic = isPublicLevel(level)
   const needsGate = level === 'gated' || level === 'members' || level === 'invite'
   const patch: Partial<EventRow> = { rkey, visibility: level, visibilitySource: e.visibilitySource ?? null, state: stateFor(e), contentHash: e.contentHash, normalized: e as unknown as Record<string, unknown>, lastSeen: new Date(), missingSince: null, missingRuns: 0, lastError: null, startsAt: new Date(e.start.instant), endsAt: e.end ? new Date(e.end.instant) : null }
 
   // Narrowing executes at once: withdraw the public record BEFORE writing anywhere else.
-  if (existing?.atUri && !needsPublic) {
+  // An adopted record is the host's own: stop listing it, never delete it.
+  if (existing?.atUri && !needsPublic && !adopted) {
     const writer = await writerFor(h)
     await unpublishEvent(writer, rkey)
     patch.atUri = null
     patch.atCid = null
     patch.blob = null
     patch.imageHash = null
+    patch.teaserAtUri = null
+  } else if (existing?.atUri && !needsPublic && adopted) {
+    patch.atUri = null
     patch.teaserAtUri = null
   }
   if (existing?.spaceUri && (!needsGate || existing.visibility !== level)) {
@@ -177,7 +204,12 @@ async function place(h: HostRow, s: SourceRow, e: NormalizedEvent, existing: Eve
     patch.spaceRecordUri = null
   }
 
-  if (needsPublic) {
+  if (needsPublic && adopted) {
+    patch.atUri = adopted
+    patch.atCid = existing?.atCid ?? null
+    patch.recordCreatedAt = existing?.recordCreatedAt ?? null
+    patch.recordVersion = 0
+  } else if (needsPublic) {
     const writer = await writerFor(h)
     const image = e.status === 'cancelled' && existing?.blob ? null : await imageFor(e)
     const prior = existing?.atUri && existing.atCid ? { cid: existing.atCid, createdAt: existing.recordCreatedAt ?? undefined, blob: (existing.blob as never) ?? undefined, imageHash: existing.imageHash ?? undefined } : null
@@ -278,7 +310,8 @@ async function execute(h: HostRow, s: SourceRow, action: Action, byId: Map<strin
     }
     case 'remove': {
       const row = byId.get(action.row.id)!
-      if (row.atUri && row.rkey) {
+      // Same rule as `place`: a record the host wrote themselves is delisted, not deleted.
+      if (row.atUri && row.rkey && !adoptedUri(h, s, row.externalId)) {
         const writer = await writerFor(h)
         await unpublishEvent(writer, row.rkey)
       }

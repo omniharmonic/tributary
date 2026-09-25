@@ -17,12 +17,14 @@ import { sheetConnector } from './sheet/index.js'
 import { eventbriteConnector } from './eventbrite/index.js'
 import { localistConnector } from './localist/index.js'
 import { mobilizeConnector } from './mobilize/index.js'
+import { atprotoConnector } from './atproto/index.js'
 
 export * from './sdk.js'
 export { PUSH_SOURCE_TYPES } from './api/index.js'
 export * from './ics/parse.js'
 export * from './csv.js'
 export { extractJsonLdEvents, extractPageMeta } from './jsonld-page/extract.js'
+export { atprotoConnector, cleanHandle, isDid, resolveRepo, toRawEvent as atprotoRecordToRawEvent, type AtprotoConfig } from './atproto/index.js'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const CONNECTORS: ReadonlyArray<Connector<any, any>> = [
@@ -40,6 +42,7 @@ export const CONNECTORS: ReadonlyArray<Connector<any, any>> = [
   eventbriteConnector,
   localistConnector,
   mobilizeConnector,
+  atprotoConnector,
 ]
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

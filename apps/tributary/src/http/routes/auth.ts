@@ -6,8 +6,8 @@ import { getCookie } from 'hono/cookie'
 import { suggestLabels } from '@tributary/identity'
 import { config } from '../../config.js'
 import { getDb } from '../../db/index.js'
-import { host, inboundAddress } from '../../db/schema.js'
-import { eq } from 'drizzle-orm'
+import { host, inboundAddress, source } from '../../db/schema.js'
+import { and, eq } from 'drizzle-orm'
 import { newToken } from '@tributary/identity'
 import { recordAudit } from '../../lib/audit.js'
 import { beginLogin, beginSignup, checkHandle, SignupError, verifyToken, type PendingSignup } from '../../lib/custody.js'
@@ -189,6 +189,7 @@ oauthRoot.get('/oauth/callback', async (c) => {
     } else if (h.pausedReason) {
       await unpauseHost(h.id)
     }
+    await connectOwnRepo(h)
     await storeOauthSession(h.id, did)
     const { cookie, expiresAt } = await createSession(h.id)
     c.header('Set-Cookie', cookieHeader(cookie, expiresAt))
@@ -201,6 +202,31 @@ oauthRoot.get('/oauth/callback', async (c) => {
     return c.redirect('/connect?error=oauth', 302)
   }
 })
+
+/**
+ * List the calendar the host already keeps in their own repo.
+ *
+ * Somebody who signs in with their handle has, by definition, an AT Protocol account,
+ * and any `community.lexicon.calendar.event` records in it are events they wrote. This
+ * connects that repo as a source so those events appear in the directory without them
+ * pasting anything.
+ *
+ * It is not a widening. Each record carries `preferences.showInDiscovery`, which is the
+ * author's own answer to "should this be listed"; the connector maps a false there to
+ * unlisted and the visibility pipeline keeps it out of the directory. So this lists what
+ * the person already asked to be listed, and nothing else.
+ *
+ * Idempotent, and never fatal: a repo we cannot read must not break signing in.
+ */
+async function connectOwnRepo(h: HostRow): Promise<void> {
+  try {
+    const existing = await getDb().select().from(source).where(and(eq(source.hostId, h.id), eq(source.type, 'atproto'))).limit(1)
+    if (existing[0]) return
+    await connectSource(h, { type: 'atproto', platform: 'atproto', match: { type: 'atproto', confidence: 1, platform: 'atproto', hint: { actor: h.did } }, defaultVisibility: 'public' })
+  } catch (err) {
+    log.info('could not list the signed-in host\u2019s own repo', { detail: describeError(err) })
+  }
+}
 
 /** Handle and display name for an OAuth host, from the public directory record. */
 async function refreshOauthProfile(h: HostRow): Promise<void> {

@@ -84,7 +84,9 @@ export function clientMetadata(): Record<string, unknown> {
   const base = c.WEB_PUBLIC_URL
   return {
     client_id: `${base}/oauth-client-metadata.json`,
-    client_name: c.ADAPTER_NAME,
+    // The consent screen is the one place this software faces the public under its own
+    // name, and the person reading it is signing in to a directory, not to an adapter.
+    client_name: c.BRAND_NAME,
     client_uri: base,
     logo_uri: `${base}/icon.png`,
     tos_uri: `${base}/legal/terms`,

@@ -15,6 +15,7 @@ export type SourceType =
   | 'squarespace'
   | 'localist'
   | 'mobilize'
+  | 'atproto'
   | 'jsonld-page'
   | 'eventbrite'
   | 'gcal-oauth'

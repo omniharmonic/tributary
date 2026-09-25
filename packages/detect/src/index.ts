@@ -123,10 +123,32 @@ export function googleCalendarId(u: URL): { calendarId?: string; icsUrl?: string
   return undefined
 }
 
+const DID_RE = /^did:(?:plc:[a-z2-7]{24}|web:[a-z0-9.:%-]+)$/i
+const HANDLE_RE = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$/
+
+/** `@alice.example.com`, `did:plc:...`, `at://alice.example.com` → the actor, else null. */
+export function atprotoActor(text: string): string | null {
+  const t = text.trim().replace(/^at:\/\//, '')
+  if (DID_RE.test(t)) return t
+  if (!t.startsWith('@')) return null
+  const h = t.slice(1).replace(/\/.*$/, '').toLowerCase()
+  return HANDLE_RE.test(h) ? h : null
+}
+
 function knownHost(u: URL): DetectMatch[] {
   const h = host(u)
   const path = u.pathname
   const out: DetectMatch[] = []
+
+  // An AT Protocol profile page names a repo; read the repo, not the page.
+  if (/(^|\.)(bsky\.app|deer\.social|blacksky\.app)$/.test(h)) {
+    const seg = path.split('/').filter(Boolean)
+    const actor = seg[0] === 'profile' ? seg[1] : undefined
+    if (actor && (DID_RE.test(actor) || HANDLE_RE.test(actor.toLowerCase()))) {
+      out.push({ type: 'atproto', confidence: 0.95, platform: 'atproto', hint: { actor: DID_RE.test(actor) ? actor : actor.toLowerCase() } })
+    }
+    return out
+  }
 
   const g = googleCalendarId(u)
   if (g) {
@@ -313,6 +335,11 @@ export async function detect(input: DetectRequest, ctx: DetectCtx): Promise<Dete
   }
   const text = input.text?.trim() ?? ''
   if (!text) return []
+  // An AT Protocol identity is checked before anything is fetched: `@alice.example.com`
+  // and `did:plc:...` name a repo we can read directly, and `alice.example.com` on its
+  // own is left to the web connectors because a bare domain is almost always a website.
+  const actor = atprotoActor(text)
+  if (actor) return [{ type: 'atproto', confidence: 0.95, platform: 'atproto', hint: { actor } }]
   const url = findUrl(text)
   if (!url) {
     return [{ type: 'extract', confidence: 0.7, platform: 'text', hint: { kind: 'text', text: text.slice(0, 20_000) }, note: NOTES.notUrl }]
@@ -408,6 +435,8 @@ export function describeMatch(m: DetectMatch): string {
       return `Localist calendar at ${hostOf(h.origin ?? h.pageUrl)}`
     case 'mobilize':
       return `Mobilize organisation ${String(h.slug ?? h.organizationId ?? '')}`.trim()
+    case 'atproto':
+      return `Calendar in ${String(h.actor ?? '').startsWith('did:') ? 'that repo' : `@${String(h.actor ?? '')}`}`
     case 'upload':
       return h.kind === 'ics' ? `Calendar file ${String(h.name ?? '')}`.trim() : `Spreadsheet ${String(h.name ?? '')}`.trim()
     case 'extract':
