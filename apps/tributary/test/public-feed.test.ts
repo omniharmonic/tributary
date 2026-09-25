@@ -68,7 +68,7 @@ describe('subscribable feed', () => {
     // Nissi's ships all-day events whose end instant is on the start date.
     const sameDayEnd = ev({
       start: { instant: '2026-09-27T06:00:00.000Z', tz: MT, allDay: true, tzInferred: false },
-      end: { instant: '2026-09-27T06:00:00.000Z', tz: MT, allDay: true, tzInferred: false },
+      end: { instant: '2026-09-27T06:00:00.000Z' },
     })
     const ics = icsFor([{ n: sameDayEnd, uid: 'u@x', cancelled: false }], 'Test')
     expect(ics).toContain('DTSTART;VALUE=DATE:20260927')
@@ -78,7 +78,7 @@ describe('subscribable feed', () => {
   it('keeps a genuine multi-day all-day span', () => {
     const span = ev({
       start: { instant: '2026-10-03T06:00:00.000Z', tz: MT, allDay: true, tzInferred: false },
-      end: { instant: '2026-10-05T06:00:00.000Z', tz: MT, allDay: true, tzInferred: false },
+      end: { instant: '2026-10-05T06:00:00.000Z' },
     })
     const ics = icsFor([{ n: span, uid: 'u@x', cancelled: false }], 'Test')
     expect(ics).toContain('DTSTART;VALUE=DATE:20261003')
