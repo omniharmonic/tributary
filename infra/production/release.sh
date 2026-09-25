@@ -14,11 +14,16 @@ AFTER=$(git rev-parse --short HEAD)
 echo "== $BEFORE -> $AFTER"
 "$ROOT/infra/production/backup.sh" || echo "backup skipped (first deploy?)"
 "${C[@]}" config --quiet
+# Tag what is running now, so there is something to go back to. This is bookkeeping:
+# a container can be running from an image id that no longer resolves (an earlier prune
+# took its untagged parent), and `set -e` turned that into a refusal to deploy at all.
+# A missing rollback tag is worth saying out loud; it is not worth blocking a release.
 for service in tributary gate; do
   container=$("${C[@]}" ps -q "$service" 2>/dev/null || true)
-  if [ -n "$container" ]; then
-    image=$(docker inspect --format '{{.Image}}' "$container")
-    docker tag "$image" "tributary-$service:rollback-$BEFORE"
+  [ -n "$container" ] || continue
+  image=$(docker inspect --format '{{.Image}}' "$container" 2>/dev/null || true)
+  if [ -z "$image" ] || ! docker tag "$image" "tributary-$service:rollback-$BEFORE" 2>/dev/null; then
+    echo "!! no rollback image for $service at $BEFORE; roll back with git and rebuild" >&2
   fi
 done
 TRIBUTARY_VERSION="$AFTER" "${C[@]}" build gate tributary
