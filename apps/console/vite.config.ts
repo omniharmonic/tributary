@@ -9,6 +9,10 @@ export default defineConfig({
   root: import.meta.dirname,
   plugins: [react(), tailwindcss()],
   build: { target: 'es2022', sourcemap: false },
+  // MapLibre's tile decoder is a module worker. Without this Vite emits it as a classic
+  // script, whose `import` of the shared chunk fails at load with nothing useful in the
+  // console beyond "Worker failed to load".
+  worker: { format: 'es' },
   server: {
     port: 5174,
     proxy: {

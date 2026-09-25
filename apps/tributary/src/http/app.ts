@@ -119,6 +119,11 @@ export function createApp(): Hono<{ Variables: Vars }> {
       await next()
     })
     app.use('/*', serveStatic({ root }))
+    // A build asset that is missing is a broken deploy, and must say so. Letting it fall
+    // through to the SPA shell hands the browser HTML where it asked for JavaScript:
+    // MapLibre's worker died on exactly that and reported only "Worker failed to load",
+    // with a 200 in the network tab to argue it was fine.
+    app.get('/assets/*', (ctx) => ctx.text('Not found.', 404))
     app.get('*', (ctx) => {
       ctx.header('Cache-Control', 'no-cache')
       ctx.header('Content-Security-Policy', CSP)

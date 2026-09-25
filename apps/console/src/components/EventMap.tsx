@@ -60,7 +60,17 @@ export function EventMap({ events, center, onPick, hrefFor }: EventMapProps) {
     let created: MapLibreMap | null = null
     void (async () => {
       try {
-        const [{ Map, NavigationControl }] = await Promise.all([import('maplibre-gl'), import('maplibre-gl/dist/maplibre-gl.css')])
+        const [maplibre, workerUrl] = await Promise.all([
+          import('maplibre-gl'),
+          // MapLibre resolves its worker relative to its own module URL, which after
+          // bundling points at a file that was never emitted. The request then fell
+          // through to the SPA's index.html and the worker died parsing HTML. Letting
+          // Vite build the worker and handing MapLibre the real URL is the whole fix.
+          import('maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url').then((m) => m.default as string),
+          import('maplibre-gl/dist/maplibre-gl.css'),
+        ])
+        const { Map, NavigationControl, setWorkerUrl } = maplibre
+        setWorkerUrl(workerUrl)
         if (cancelled || !holder.current) return
         created = new Map({
           container: holder.current,
