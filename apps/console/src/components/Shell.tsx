@@ -5,9 +5,7 @@ import { TabBar } from './TabBar'
 
 export function Flatirons({ className = '' }: { className?: string }) {
   return (
-    <svg viewBox="0 0 64 28" width="40" height="18" className={className} aria-hidden="true">
-      <path d="M0 27 L12 6 L20 18 L30 2 L40 16 L48 9 L64 27 Z" fill="currentColor" />
-    </svg>
+    <img src="/brand/boulder-events-mark.png" width="64" height="40" className={`flatirons-mark ${className}`} alt="" aria-hidden="true" />
   )
 }
 

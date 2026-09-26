@@ -388,7 +388,9 @@ img { display: block; max-width: 100%; }
 .site-header { background: var(--c-surface); border-bottom: 1px solid var(--c-rule); }
 .header-inner { max-width: 1200px; margin: auto; padding: 20px 28px; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
 .brand { display: flex; align-items: center; gap: 12px; text-decoration: none; flex-shrink: 0; }
-.brand-mark { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 50%; background: var(--c-ochre-soft); color: var(--c-ochre); }
+.brand-mark { width: 60px; height: 44px; display: grid; place-items: center; flex-shrink: 0; }
+.flatirons-mark { display: block; width: 64px; height: 40px; object-fit: cover; object-position: center 56%; flex-shrink: 0; }
+.brand-mark .flatirons-mark { width: 100%; height: 100%; }
 .brand strong { font-size: 19px; letter-spacing: -0.045em; font-weight: 700; display: block; line-height: 1.2; }
 .brand-subtitle { display: block; color: var(--c-ink-soft); font-size: 11px; margin-top: 3px; }
 .site-nav { display: flex; align-items: center; gap: 24px; font-size: 13px; font-weight: 600; }
@@ -467,7 +469,7 @@ summary { padding-block: 10px; }
 .day-rail .num { font-size: 38px; margin-block: 6px; color: var(--c-ochre); }
 .day-rail .dow { font-size: 11px; }
 .host-invitation { margin-top: 56px; padding: 30px; display: flex; gap: 24px; align-items: flex-start; background: var(--c-ochre-soft); border-radius: 18px; }
-.host-invitation > svg { flex-shrink: 0; margin-top: 4px; width: 60px; height: 30px; }
+.host-invitation > .flatirons-mark { margin-top: 4px; }
 .host-invitation h2 { font-size: 22px; }
 .host-invitation p { font-size: 14px; line-height: 1.7; }
 
@@ -550,8 +552,7 @@ summary { padding-block: 10px; }
 @media (max-width: 640px) {
   .header-inner { padding: 16px; gap: 12px; flex-wrap: wrap; }
   .brand { gap: 8px; }
-  .brand-mark { width: 34px; height: 34px; }
-  .brand-mark svg { width: 28px; }
+  .brand-mark { width: 44px; height: 34px; }
   .brand strong { font-size: 17px; }
   .brand-subtitle { font-size: 10px; }
   .site-nav { gap: 12px; font-size: 12px; }
@@ -574,7 +575,7 @@ summary { padding-block: 10px; }
   .day-events .event-card > div:first-child { width: 72px; height: 90px; }
   .event-card h3 { font-size: 16px; }
   .host-invitation { padding: 22px; gap: 12px; }
-  .host-invitation > svg { display: none; }
+  .host-invitation > .flatirons-mark { display: none; }
   .host-invitation h2 { font-size: 20px; }
   .publish-steps { gap: 12px; justify-content: space-between; }
   .publish-steps li { gap: 5px; font-size: 11px; }
