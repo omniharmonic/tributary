@@ -30,8 +30,11 @@ afterEach(() => vi.unstubAllGlobals())
 
 describe('map browsing', () => {
   it('preserves a place selected while the basemap is loading', async () => {
-    render(<EventMap events={events} center={{ lat: 40, lon: -105 }} hrefFor={() => '/event/a'} />)
+    const view = render(<EventMap events={events} center={{ lat: 40, lon: -105 }} hrefFor={() => '/event/a'} />)
+    const scroll = view.container.querySelector('.map-results-scroll')!
+    scroll.scrollTop = 240
     fireEvent.click(screen.getByRole('button', { name: /Main library/ }))
+    expect(scroll.scrollTop).toBe(0)
     expect(screen.getByRole('link', { name: 'View event' })).toHaveAttribute('href', '/event/a')
     await vi.waitFor(() => expect(mock.load).toBeDefined())
     await act(async () => mock.load!())

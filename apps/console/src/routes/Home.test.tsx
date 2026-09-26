@@ -1,15 +1,21 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { gridWindow, monthGrid } from '../lib/dates'
+import type { PublicEvent } from '../lib/types'
+import { dayWindow, gridWindow, monthGrid } from '../lib/dates'
 
-const state = vi.hoisted(() => ({ search: {} as Record<string, string>, navigate: vi.fn(), params: undefined as unknown }))
+const state = vi.hoisted(() => ({ search: {} as Record<string, string>, navigate: vi.fn(), params: undefined as unknown, dayEvents: [] as PublicEvent[], dayParams: undefined as unknown }))
 vi.mock('@tanstack/react-router', () => ({
   Link: ({ children }: { children: React.ReactNode }) => <a>{children}</a>,
   useSearch: () => state.search,
   useNavigate: () => state.navigate,
 }))
 vi.mock('@tanstack/react-query', () => ({
-  useInfiniteQuery: ({ queryKey }: { queryKey: unknown }) => { state.params = queryKey; return { data: { pages: [{ events: [] }] }, isPending: false, error: null } },
+  useInfiniteQuery: ({ queryKey }: { queryKey: { limit: number } }) => {
+    const isDay = state.search.view === 'calendar' && queryKey.limit === 100
+    if (isDay) state.dayParams = queryKey
+    else state.params = queryKey
+    return { data: { pages: [{ events: isDay ? state.dayEvents : [] }] }, isPending: false, error: null }
+  },
   useQuery: () => ({ data: { days: {} } }),
 }))
 vi.mock('../lib/api', () => ({ api: {} }))
@@ -19,7 +25,7 @@ vi.mock('../components/Subscribe', () => ({ SubscribeMenu: () => null }))
 
 import { HomeRoute } from './Home'
 
-beforeEach(() => { state.search = {}; state.navigate.mockReset() })
+beforeEach(() => { state.search = {}; state.navigate.mockReset(); state.dayEvents = []; state.dayParams = undefined })
 describe('directory interactions', () => {
   it('keeps the full month and calendar controls when an empty day is selected', () => {
     state.search = { view: 'calendar', month: '2026-09', day: '2026-09-27' }
@@ -27,6 +33,15 @@ describe('directory interactions', () => {
     expect(state.params).toMatchObject(gridWindow(monthGrid('2026-09', 'America/Denver'), 'America/Denver'))
     expect(screen.getByRole('button', { name: 'This month' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'A little room in your calendar' })).toBeInTheDocument()
+  })
+  it('loads a selected day even when its events are beyond the month page', () => {
+    state.search = { view: 'calendar', month: '2026-09', day: '2026-10-07' }
+    state.dayEvents = [{ did: 'did:example:host', rkey: 'late', host: { displayName: 'Local host', provenanceLevel: 'listed' }, card: { key: 'late', name: 'Later day workshop', startsAt: '2026-10-07T16:00:00Z', when: 'Oct 7', visibility: 'public', missing: [] } }] as unknown as PublicEvent[]
+    render(<HomeRoute />)
+    expect(state.params).toMatchObject(gridWindow(monthGrid('2026-09', 'America/Denver'), 'America/Denver'))
+    expect(state.dayParams).toMatchObject(dayWindow('2026-10-07', 'America/Denver'))
+    expect(screen.getByRole('link', { name: 'Later day workshop' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'A little room in your calendar' })).not.toBeInTheDocument()
   })
   it('updates the search input on browser navigation and clears it with the filters', () => {
     state.search = { q: 'music' }

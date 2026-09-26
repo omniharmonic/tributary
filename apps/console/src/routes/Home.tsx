@@ -247,8 +247,7 @@ export function HomeRoute() {
           {view === 'calendar' && search.day ? (
             <div className="mt-8 selected-day-results">
               <h2 className="mb-4">Events on {dayParts(search.day, tz).dow}, {dayParts(search.day, tz).month} {dayParts(search.day, tz).num}</h2>
-              {!events.some((e) => dayKey(e.card.startsAt, tz) === search.day) ? <Empty title="A little room in your calendar">Nothing is listed for this day. Choose another day above.</Empty> : null}
-              <Listing events={events.filter((e) => dayKey(e.card.startsAt, tz) === search.day)} tz={tz} grouped={false} />
+              <SelectedDayEvents params={{ ...params, ...dayWindow(search.day, tz), limit: PAGE.list }} tz={tz} />
             </div>
           ) : null}
 
@@ -342,4 +341,19 @@ export function DayLedger({ events, tz }: { events: PublicEvent[]; tz: string; s
       })}
     </div>
   )
+}
+
+/** Fetch a picked day directly: a busy month may extend beyond the loaded grid page. */
+function SelectedDayEvents({ params, tz }: { params: Parameters<typeof api.publicEvents>[0]; tz: string }) {
+  const query = useInfiniteQuery({
+    queryKey: keys.publicEvents(params as never),
+    queryFn: ({ pageParam }) => api.publicEvents({ ...params, cursor: pageParam as string | undefined }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => last.cursor ?? undefined,
+  })
+  const events = query.data?.pages.flatMap((page) => page.events) ?? []
+  return <PageState isPending={query.isPending} error={query.error} retry={() => void query.refetch()} empty={!query.isPending && !query.error && events.length === 0 ? <Empty title="A little room in your calendar">Nothing is listed for this day. Choose another day above.</Empty> : null}>
+    <Listing events={events} tz={tz} grouped={false} />
+    {query.hasNextPage ? <button type="button" className="btn mt-4" disabled={query.isFetchingNextPage} onClick={() => void query.fetchNextPage()}>{query.isFetchingNextPage ? 'Loading…' : 'Load more for this day'}</button> : null}
+  </PageState>
 }

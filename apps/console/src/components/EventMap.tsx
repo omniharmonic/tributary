@@ -63,6 +63,7 @@ export function EventMap({ events, center, hrefFor }: EventMapProps) {
   const holder = useRef<HTMLDivElement>(null)
   const map = useRef<MapLibreMap | null>(null)
   const detailHeading = useRef<HTMLHeadingElement>(null)
+  const resultsScroll = useRef<HTMLDivElement>(null)
   const [ready, setReady] = useState(false)
   const [failed, setFailed] = useState(false)
   const [attempt, setAttempt] = useState(0)
@@ -163,6 +164,7 @@ export function EventMap({ events, center, hrefFor }: EventMapProps) {
   }, [selected, ready])
 
   useEffect(() => {
+    if (resultsScroll.current) resultsScroll.current.scrollTop = 0
     if (selected || showUnplaced) detailHeading.current?.focus({ preventScroll: true })
   }, [selected, showUnplaced])
 
@@ -187,7 +189,7 @@ export function EventMap({ events, center, hrefFor }: EventMapProps) {
             <h3 ref={detailHeading} tabIndex={-1}>{showUnplaced ? 'Events without map pins' : selected ? selected.name : 'Find your next stop'}</h3>
             <p className="text-sm text-ink-soft">{showUnplaced ? 'Online, private, or without an exact address.' : selected ? `${selected.events.length} ${selected.events.length === 1 ? 'event' : 'events'} at this location` : 'Select a place to see what’s happening.'}</p>
           </div>
-          <div className="map-results-scroll">
+          <div ref={resultsScroll} className="map-results-scroll">
             {selected || showUnplaced ? <div className="map-event-list">{(showUnplaced ? unplaced : selected!.events).map((e) => <EventCard key={`${e.did}/${e.rkey ?? e.card.key}`} card={e.card} compact href={hrefFor(e)} action={<a className="map-detail-link" href={hrefFor(e)}>View event<Icon name="arrow" /></a>} />)}</div> : <ul className="map-place-list">{places.map((place) => <li key={place.key}><button type="button" className="map-place" onClick={() => { setSelection(place.key); setShowUnplaced(false) }}><span className="place-icon"><Icon name="pin" /></span><span><strong>{place.name}</strong><span>{place.events[0]!.card.name}</span><small>{place.events.length} {place.events.length === 1 ? 'event' : 'events'}</small></span><Icon name="arrow" /></button></li>)}</ul>}
             {!selected && !showUnplaced && unplaced.length > 0 ? <button type="button" className="unplaced-button" onClick={() => setShowUnplaced(true)}>{unplaced.length} more {unplaced.length === 1 ? 'event' : 'events'} without map pins<Icon name="arrow" /></button> : null}
           </div>

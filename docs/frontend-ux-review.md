@@ -69,6 +69,16 @@ Commands: `pnpm --filter @tributary/console test`, `pnpm --filter @tributary/con
 
 ## Boundaries and follow-up validation
 
-Live OAuth, real email delivery, production publishing/unpublishing, guest invitation delivery, API key changes, destructive account actions, and external calendar-app installation were not executed. CSV/upload paths and legal/informational pages were reviewed in source; file selection is covered by the existing OneBox test. No production deployment was performed.
+Live OAuth, real email delivery, production publishing/unpublishing, guest invitation delivery, API key changes, destructive account actions, and external calendar-app installation were not executed. CSV/upload paths and legal/informational pages were reviewed in source; file selection is covered by the existing OneBox test. Production deployment and public smoke testing are recorded below.
 
 The build still reports the existing large MapLibre chunk and mixed static/dynamic imports of `Misc.tsx`. MapLibre remains lazy-loaded. Dark-mode styling is included, but OS-level dark-mode switching was not part of browser verification.
+
+## Production release and smoke testing
+
+The September 26 release used the documented Hetzner backup-and-release script. The initial design release was `22cf7df`; the subsequent correction loads selected calendar days independently of the month page and resets map-preview scroll position. Both have regression coverage. All 37 console tests, typecheck, build, source hygiene, and diff checks pass.
+
+The public production health endpoint reported PostgreSQL, PDS, Gate, and search healthy. Configuration, event listings, day counts, basemap style, and built JavaScript/CSS returned HTTP 200. The music subscription feed returned valid iCalendar content containing 60 events.
+
+Live browser checks covered search empty-state recovery, category filtering, filtered subscription URLs and dialog dismissal, populated calendar navigation, map place selection with 54 colocated events, map reset, and events without exact coordinates. Production volume exposed a selected-day false empty state beyond the first month page; the direct day query corrects this without changing the calendar grid query.
+
+Some upstream listings contain literal HTML entities or HTML in titles/locations. This predates the release and remains a source-normalization follow-up; no source data was modified during smoke testing. Real email/OAuth, publication, invitations, and destructive account actions remain outside the production smoke test.
