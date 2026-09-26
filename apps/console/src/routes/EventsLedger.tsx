@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { api } from '../lib/api'
 import { plainError } from '../lib/errors'
-import { keys } from '../lib/queries'
+import { keys, useActing } from '../lib/queries'
 import type { EventOverride, LedgerEvent, Visibility } from '../lib/types'
 import { EventCard } from '../components/EventCard'
 import { Empty, PageState } from '../components/PageState'
@@ -21,6 +21,7 @@ const STATES = [
 
 export function EventsLedgerRoute() {
   const search = useSearch({ strict: false }) as { sourceId?: string; state?: string }
+  const { readOnly } = useActing()
   const navigate = useNavigate()
   const qc = useQueryClient()
   const params = { sourceId: search.sourceId, state: search.state }
@@ -70,7 +71,7 @@ export function EventsLedgerRoute() {
                     <span className="badge">{e.state}</span>
                     {e.override?.hidden ? <span className="badge badge-held">hidden by you</span> : null}
                     {e.visibilitySource && e.visibilitySource !== 'host-default' ? <span className="badge">visibility from {e.visibilitySource === 'source-signal' ? 'the source' : e.visibilitySource === 'rule' ? 'a rule' : 'you'}</span> : null}
-                    <button type="button" className="btn btn-sm" onClick={() => setEditing(e)}>
+                    <button type="button" className="btn btn-sm" onClick={() => setEditing(e)} disabled={readOnly}>
                       Override
                     </button>
                     {e.visibility === 'gated' || e.visibility === 'invite' || e.visibility === 'members' ? (

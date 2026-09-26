@@ -40,12 +40,12 @@ export function OneBox({ onSubmit, busy, autoFocus, initialInput = '' }: { onSub
         }}
         onDragLeave={() => setOver(false)}
         onDrop={drop}
-        className={`panel grid gap-2 p-2 transition-colors ${over ? 'outline outline-2 outline-slate' : ''}`}
+        className={`onebox panel grid gap-2 p-2 transition-colors ${over ? 'outline outline-2 outline-slate' : ''}`}
       >
         <label className="field">
           <span className="sr-only">Paste a link, or describe an event</span>
           <textarea
-            className="textarea border-0 shadow-none focus:outline-none"
+            className="textarea border-0 shadow-none"
             rows={2}
             placeholder="Paste a link, drop a file, or describe an event"
             value={input}
@@ -55,7 +55,7 @@ export function OneBox({ onSubmit, busy, autoFocus, initialInput = '' }: { onSub
             autoCorrect="off"
             spellCheck={false}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
+              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
                 e.preventDefault()
                 if (canSubmit) onSubmit({ input: input.trim(), file })
               }
@@ -80,11 +80,12 @@ export function OneBox({ onSubmit, busy, autoFocus, initialInput = '' }: { onSub
             )}
           </div>
           <button type="submit" className="btn btn-primary" disabled={!canSubmit}>
-            {busy ? 'Looking…' : 'Find events'}
+            {busy ? 'Finding your events…' : 'Preview events'}
           </button>
         </div>
       </div>
       <p className="hint">
+        Nothing is published until you review it. Press Ctrl or ⌘ + Enter to preview.
         Works with Google Calendar, Luma, Meetup, Eventbrite, WordPress and Squarespace sites, any calendar feed, a forwarded invite, or a sentence like &ldquo;Repair caf&eacute;, first Saturdays 10&ndash;1 at the library&rdquo;. On any event page, <a href="/about/bookmarklet">use the bookmarklet</a>.
       </p>
     </form>

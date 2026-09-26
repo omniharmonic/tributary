@@ -64,6 +64,7 @@ export function SettingsRoute() {
               <button type="button" className="btn btn-sm mt-2" onClick={() => revoke.mutate()} disabled={revoke.isPending}>
                 Revoke our access
               </button>
+              {revoke.error ? <p className="notice notice-warn" role="alert">{plainError(revoke.error)}</p> : null}
               {revoke.data ? <p className="mt-2 text-sm">Revoked. Sources are paused.</p> : null}
             </details>
           </section>
@@ -97,11 +98,13 @@ export function SettingsRoute() {
           </PageState>
           <div>
             <button type="button" className="btn btn-sm" onClick={() => rotate.mutate()} disabled={rotate.isPending || readOnly}>
-              Rotate address and secret
+              {rotate.isPending ? 'Rotating…' : 'Rotate address and secret'}
             </button>
           </div>
         </section>
 
+        {rotate.error ? <p className="notice notice-warn" role="alert">{plainError(rotate.error)}</p> : null}
+        {rotate.isSuccess ? <p className="notice" role="status">Address and secret updated. Replace the old values in your integrations.</p> : null}
         {ownerOnly ? (
         <section className="panel grid gap-3 p-4">
           <h2>API keys</h2>
@@ -118,6 +121,7 @@ export function SettingsRoute() {
               Create key
             </button>
           </form>
+          {createKey.error || deleteKey.error ? <p className="notice notice-warn" role="alert">{plainError(createKey.error ?? deleteKey.error)}</p> : null}
           {freshKey?.key ? (
             <div className="notice grid gap-1">
               <p className="font-medium">Copy this now. It is shown once.</p>
@@ -131,7 +135,7 @@ export function SettingsRoute() {
                   <span>
                     {k.name} <span className="text-ink-soft">· created {shortDateTime(k.createdAt)}{k.lastUsedAt ? `, last used ${shortDateTime(k.lastUsedAt)}` : ''}</span>
                   </span>
-                  <button type="button" className="btn btn-sm btn-quiet" onClick={() => deleteKey.mutate(k.id)}>
+                  <button type="button" className="btn btn-sm btn-quiet" onClick={() => deleteKey.mutate(k.id)} disabled={deleteKey.isPending}>
                     Revoke
                   </button>
                 </li>

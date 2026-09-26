@@ -5,7 +5,7 @@ import { useMe } from '../lib/queries'
 export function TabBar() {
   const { me } = useMe()
   const pathname = useRouterState({ select: (s) => s.location.pathname })
-  if (!me) return null
+  if (!me || !(pathname.startsWith('/dashboard') || pathname === '/settings' || pathname === '/steward')) return null
   const tabs = [
     { to: '/dashboard', label: 'Sources', match: (p: string) => p === '/dashboard' || p.startsWith('/dashboard/sources') },
     { to: '/dashboard/events', label: 'Events', match: (p: string) => p.startsWith('/dashboard/events') || p.startsWith('/dashboard/audience') },
@@ -13,8 +13,8 @@ export function TabBar() {
     { to: '/settings', label: 'Settings', match: (p: string) => p.startsWith('/settings') },
   ]
   return (
-    <nav aria-label="Your events" className="sticky bottom-0 z-30 border-t border-rule bg-surface pb-[env(safe-area-inset-bottom,0px)] sm:static sm:border-0 sm:bg-transparent">
-      <ul className="mx-auto flex max-w-3xl justify-around sm:justify-start sm:gap-1 sm:px-4">
+    <nav aria-label="Your events" className="host-tabs">
+      <ul className="mx-auto flex max-w-[1200px] gap-1 px-4">
         {tabs.map((t) => {
           const active = t.match(pathname)
           return (

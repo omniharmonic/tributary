@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { api } from '../lib/api'
 import { plainError } from '../lib/errors'
 import { shortDateTime } from '../lib/dates'
-import { keys, useConfig } from '../lib/queries'
+import { keys, useConfig, useActing } from '../lib/queries'
 import type { Confirmation, RawEvent } from '../lib/types'
 import { EventCard } from '../components/EventCard'
 import { Empty, PageState } from '../components/PageState'
@@ -47,6 +47,7 @@ export function ConfirmDeepLinkRoute() {
 
 export function ConfirmationItem({ item, onDone }: { item: Confirmation; onDone: () => void }) {
   const cfg = useConfig()
+  const { readOnly } = useActing()
   const [edits, setEdits] = useState<Record<string, Partial<RawEvent>>>({})
   const resolve = useMutation({ mutationFn: (action: 'confirm' | 'reject') => api.resolveConfirmation(item.id, action, action === 'confirm' ? edits : undefined), onSuccess: onDone })
   const proposed = item.proposed as { recurrenceText?: string; rrule?: string; year?: number; timezone?: string; from?: string; to?: string; reason?: string }
@@ -111,10 +112,10 @@ export function ConfirmationItem({ item, onDone }: { item: Confirmation; onDone:
         </p>
       ) : null}
       <div className="flex flex-wrap gap-2">
-        <button type="button" className="btn btn-primary" onClick={() => resolve.mutate('confirm')} disabled={resolve.isPending}>
+        <button type="button" className="btn btn-primary" onClick={() => resolve.mutate('confirm')} disabled={resolve.isPending || readOnly}>
           {item.kind === 'widen' ? 'Yes, make it more visible' : 'Confirm and publish'}
         </button>
-        <button type="button" className="btn" onClick={() => resolve.mutate('reject')} disabled={resolve.isPending}>
+        <button type="button" className="btn" onClick={() => resolve.mutate('reject')} disabled={resolve.isPending || readOnly}>
           {item.kind === 'widen' ? 'Keep it as it is' : 'Discard'}
         </button>
       </div>

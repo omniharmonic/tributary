@@ -1,3 +1,4 @@
+import { PublishSteps } from '../components/PublishSteps'
 import { Link, useNavigate, useParams } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
@@ -66,7 +67,9 @@ export function PreviewRoute() {
       await api.addSource({ previewId, defaultVisibility: visibility, audience: visibility === 'members' && group ? { group } : undefined })
       return { confirmId: null }
     },
-    onSuccess: (r) => {
+    onSuccess: async (r) => {
+      await qc.invalidateQueries({ queryKey: ['sources'] })
+      await qc.invalidateQueries({ queryKey: ['confirmations'] })
       if (r.confirmId) void navigate({ to: '/confirm/$id', params: { id: r.confirmId } })
       else void navigate({ to: '/dashboard', search: { welcome: undefined } })
     },
@@ -75,6 +78,7 @@ export function PreviewRoute() {
   return (
     <>
       <Page>
+        <PublishSteps step={2} />
         <PageState isPending={q.isPending} error={q.error}>
           {p ? (
             <div className="grid gap-6">

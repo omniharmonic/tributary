@@ -35,3 +35,24 @@ describe('frameFor', () => {
     expect(frameFor([])).toBeNull()
   })
 })
+
+import { placesFor } from './EventMap'
+import type { PublicEvent } from '../lib/types'
+
+const eventAt = (key: string, geo?: { lat: number; lon: number }, did = 'host-a') => ({ did, rkey: key, card: { key, geo, place: 'Library', startsAt: '2026-09-27T10:00:00Z' } }) as PublicEvent
+
+describe('placesFor', () => {
+  it('keeps all events at a shared address, including duplicate source keys from different hosts', () => {
+    const a = eventAt('same-key', { lat: 40, lon: -105 })
+    const b = eventAt('same-key', { lat: 40, lon: -105 }, 'host-b')
+    const places = placesFor([a, b])
+    expect(places).toHaveLength(1)
+    expect(places[0]!.events).toEqual([a, b])
+  })
+  it('does not merge different locations with the same venue name', () => {
+    expect(placesFor([eventAt('a', { lat: 40, lon: -105 }), eventAt('b', { lat: 41, lon: -105 })])).toHaveLength(2)
+  })
+  it('excludes withheld, missing, non-finite and out-of-range coordinates', () => {
+    expect(placesFor([eventAt('private'), eventAt('bad', { lat: NaN, lon: -105 }), eventAt('invalid', { lat: 100, lon: -105 })])).toEqual([])
+  })
+})

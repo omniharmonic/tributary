@@ -1,3 +1,4 @@
+import { PublishSteps } from '../components/PublishSteps'
 import { Link, useSearch } from '@tanstack/react-router'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
@@ -81,6 +82,7 @@ export function ConnectRoute() {
   return (
     <>
       <Page title="Publish as…" lede="Your events go into an account that is yours. Pick a name for it. That is the only thing we ask.">
+        <PublishSteps step={3} />
         {search.error === 'scopes' ? <p className="notice notice-warn mb-4">Your account&rsquo;s server does not yet allow the narrow permission we ask for (calendar events and images only). Use the first option below instead, or ask your server to update.</p> : null}
         <form
           className="panel grid gap-4 p-4"
@@ -99,7 +101,7 @@ export function ConnectRoute() {
           </label>
           <label className="field">
             <span>Your handle</span>
-            <span className="flex items-center gap-1">
+            <span className="handle-input">
               <input
                 className="input"
                 value={label}

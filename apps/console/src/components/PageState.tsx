@@ -3,7 +3,7 @@ import { plainError } from '../lib/errors'
 
 export function Loading({ label = 'Loading' }: { label?: string }) {
   return (
-    <p className="py-10 text-center text-ink-soft" role="status" aria-live="polite">
+    <p className="loading-state" role="status" aria-live="polite">
       {label}…
     </p>
   )

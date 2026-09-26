@@ -2,7 +2,7 @@ import { Link, useParams } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { api } from '../lib/api'
-import { plainError } from '../lib/errors'
+import { ApiError, plainError } from '../lib/errors'
 import { useMe } from '../lib/queries'
 import { LockIcon, ProvenanceBadge, SourceBadge, StatusBadge, platformLabel } from '../components/Badges'
 import { Placeholder } from '../components/EventCard'
@@ -19,11 +19,12 @@ export function EventRoute() {
   const q = useQuery({ queryKey: ['public-event', did, rkey], queryFn: () => api.publicEvent(did, rkey), retry: false })
   const request = useMutation({ mutationFn: () => api.requestPlace(did, rkey), onSuccess: () => void qc.invalidateQueries({ queryKey: ['public-event', did, rkey] }) })
 
-  if (q.error) return <NotFoundRoute />
+  if (q.error instanceof ApiError && q.error.status === 404) return <NotFoundRoute />
   return (
     <>
       <Page>
-        <PageState isPending={q.isPending} error={null}>
+        <Link to="/" className="back-link">Explore more events</Link>
+        <PageState isPending={q.isPending} error={q.error} retry={() => void q.refetch()}>
           {q.data ? <EventBody e={q.data} signedIn={!!me} onRequest={() => request.mutate()} requesting={request.isPending} requestError={request.error} /> : null}
         </PageState>
       </Page>
@@ -37,7 +38,7 @@ function EventBody({ e, signedIn, onRequest, requesting, requestError }: { e: Aw
   const gated = c.visibility === 'gated'
   return (
     <article className="grid gap-5">
-      <div className="aspect-[16/9] overflow-hidden rounded-[var(--r-md)] bg-surface-2">{c.imageUrl ? <img src={c.imageUrl} alt="" className="h-full w-full object-cover" /> : <Placeholder name={c.name} />}</div>
+      <div className="event-cover aspect-[16/9] overflow-hidden rounded-[var(--r-md)] bg-surface-2">{c.imageUrl ? <img src={c.imageUrl} alt="" className="h-full w-full object-cover" /> : <Placeholder name={c.name} />}</div>
       <div className="grid gap-2">
         <p className="text-ink-soft">{c.when}</p>
         <h1 className={c.status === 'cancelled' ? 'line-through' : ''}>{c.name}</h1>

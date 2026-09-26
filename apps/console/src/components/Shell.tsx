@@ -1,4 +1,4 @@
-import { Link } from '@tanstack/react-router'
+import { Link, useRouterState } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
 import { useActing, useConfig, useLogout, useManaged, useMe } from '../lib/queries'
 import { TabBar } from './TabBar'
@@ -40,7 +40,7 @@ export function ActingBanner() {
   if (!acting) return null
   return (
     <div className="border-b border-rule bg-surface-2" role="status">
-      <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-2 px-4 py-1.5 text-sm">
+      <div className="mx-auto flex max-w-[1200px] flex-wrap items-center justify-between gap-2 px-4 py-1.5 text-sm">
         <span>
           Managing <strong>{acting.displayName}</strong> as {acting.role}
           {acting.role === 'viewer' ? ' (read only)' : ''}
@@ -57,37 +57,24 @@ export function Header() {
   const cfg = useConfig()
   const { me } = useMe()
   const logout = useLogout()
+  const pathname = useRouterState({ select: (s) => s.location.pathname })
+  const managing = pathname.startsWith('/dashboard') || pathname === '/settings' || pathname === '/steward'
   return (
-    <header className="border-b border-rule bg-ground">
-      <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3">
-        {/* The name must not wrap. At 390px "Boulder Events Directory" broke over three
-            lines beside a squashed icon, which is the first thing anyone saw on a phone. */}
-        <Link to="/" className="flex min-w-0 items-center gap-2 no-underline">
-          <Flatirons className="shrink-0 text-ochre" />
-          <span className="truncate font-serif text-[clamp(0.9rem,3.7vw,1.25rem)] whitespace-nowrap">{cfg.brand}</span>
+    <header className="site-header">
+      <div className="header-inner">
+        <Link to="/" className="brand" aria-label={cfg.brand}>
+          <span className="brand-mark"><Flatirons /></span>
+          <span><strong>{cfg.region.name} Events</strong><span className="brand-subtitle">A community calendar</span></span>
         </Link>
-        <nav aria-label="Site" className="flex items-center gap-1">
-          {me ? (
-            <>
-              <AccountSwitcher />
-              <Link to="/dashboard" className="btn btn-quiet btn-sm hidden sm:inline-flex">
-                {me.host.displayName}
-              </Link>
-              <button type="button" className="btn btn-quiet btn-sm" onClick={() => logout.mutate()}>
-                Sign out
-              </button>
-            </>
-          ) : (
-            <Link to="/login" className="btn btn-quiet btn-sm">
-              Sign in
-            </Link>
-          )}
-          <Link to="/add" className="btn btn-primary btn-sm">
-            <span className="hidden sm:inline">Add your events</span>
-            <span className="sm:hidden">Add</span>
-          </Link>
+        <nav aria-label="Site" className="site-nav">
+          <Link to="/" className="nav-link hidden sm:inline-flex" aria-current={pathname === '/' ? 'page' : undefined}>Explore</Link>
+          {me ? <Link to="/dashboard" className="nav-link" aria-current={managing ? 'page' : undefined}>Your sources</Link> : <Link to="/login" className="nav-link">Sign in</Link>}
+          {me ? <button type="button" className="nav-link hidden sm:inline-flex" disabled={logout.isPending} onClick={() => logout.mutate()}>{logout.isPending ? 'Signing out…' : 'Sign out'}</button> : null}
+          <Link to="/add" className="btn btn-primary header-add"><span className="hidden sm:inline">Add your events</span><span className="sm:hidden">Add events</span></Link>
         </nav>
       </div>
+      {logout.error ? <p className="notice notice-warn" role="alert">Sign out failed. Please try again.</p> : null}
+      {managing ? <div className="account-bar"><AccountSwitcher /><button type="button" className="btn btn-quiet btn-sm sm:hidden" onClick={() => logout.mutate()} disabled={logout.isPending}>Sign out</button></div> : null}
       <ActingBanner />
       <TabBar />
     </header>
@@ -96,9 +83,9 @@ export function Header() {
 
 export function Page({ title, lede, children, wide }: { title?: ReactNode; lede?: ReactNode; children: ReactNode; wide?: boolean }) {
   return (
-    <main id="main" className={`mx-auto w-full px-4 py-6 ${wide ? 'max-w-5xl' : 'max-w-3xl'}`}>
+    <main id="main" className={`page ${wide ? 'page-wide' : ''}`}>
       {title ? (
-        <div className="mb-5 grid gap-1">
+        <div className="page-heading">
           <h1>{title}</h1>
           {lede ? <p className="max-w-[60ch] text-ink-soft">{lede}</p> : null}
         </div>
@@ -113,7 +100,7 @@ export function Footer() {
   const { me } = useMe()
   return (
     <footer className="mt-12 border-t border-rule">
-      <div className="mx-auto flex max-w-5xl flex-wrap gap-x-5 gap-y-1 px-4 py-6 text-sm text-ink-soft">
+      <div className="mx-auto flex max-w-[1200px] flex-wrap gap-x-5 gap-y-1 px-4 py-6 text-sm text-ink-soft">
         <span>
           {cfg.brand}, run by neighbours. Events stay with the people who host them.
         </span>

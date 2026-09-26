@@ -9,7 +9,7 @@
  * page under it, which is a control, not navigation.
  */
 import { DateTime } from 'luxon'
-import { dayKey, monthGrid, monthLabel, shiftMonth, type GridDay } from '../lib/dates'
+import { dayKey, monthGrid, monthLabel, shiftMonth, thisMonth, type GridDay } from '../lib/dates'
 import type { PublicEvent } from '../lib/types'
 
 const DOW = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -43,6 +43,7 @@ export function CalendarGrid({ month, tz, events, counts, selected, onMonth, onD
       <div className="mb-3 flex items-center justify-between gap-3">
         <h2 className="text-[1.5rem]">{monthLabel(month, tz)}</h2>
         <div className="flex items-center gap-1">
+          <button type="button" className="btn btn-sm btn-quiet" onClick={() => onMonth(thisMonth(tz))}>This month</button>
           <button type="button" className="btn btn-sm btn-quiet" onClick={() => onMonth(shiftMonth(month, -1, tz))} aria-label={`Show ${monthLabel(shiftMonth(month, -1, tz), tz)}`}>
             ←
           </button>
@@ -81,10 +82,11 @@ function Cell({ day, tz, events, total, selected, onDay }: { day: GridDay; tz: s
       data-selected={selected || undefined}
       data-empty={total === 0 || undefined}
       aria-pressed={selected}
-      aria-label={total ? `${label}, ${total} events` : `${label}, nothing listed`}
+      aria-label={total ? `${label}, ${total} ${total === 1 ? 'event' : 'events'}` : `${label}, nothing listed`}
       onClick={() => onDay(selected ? undefined : day.iso)}
     >
       <span className="cal-num">{day.day}</span>
+      {total > 0 ? <span className="cal-mobile-count" aria-hidden="true">{total}</span> : null}
       <span className="cal-items" aria-hidden="true">
         {shown.map((e) => (
           <span key={e.card.key} className="cal-item">

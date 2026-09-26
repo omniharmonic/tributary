@@ -26,10 +26,10 @@ export function VerifyRoute() {
   }, [search.token])
   return (
     <>
-      <Page title={verify.error ? 'That link did not work' : 'Signing you in'}>
-        {verify.error ? (
+      <Page title={verify.error || !search.token ? 'That link did not work' : 'Signing you in'}>
+        {verify.error || !search.token ? (
           <div className="grid gap-3">
-            <p className="notice notice-warn">{plainError(verify.error)}</p>
+            <p className="notice notice-warn">{search.token ? plainError(verify.error) : 'This sign-in link is missing its verification code. Request a new link to continue.'}</p>
             <a className="btn" href="/login">
               Ask for a new link
             </a>
@@ -115,7 +115,7 @@ export function LoginRoute() {
                 {oauth.isPending ? 'Taking you to your server…' : 'Continue with your handle'}
               </button>
               <p className="hint">
-                You will approve this on your own server. We ask only to read and write calendar events and image blobs \u2014 nothing else in your repo. Any calendar events already there will be listed here.
+                You will approve this on your own server. We ask only to read and write calendar events and image blobs — nothing else in your repo. Any calendar events already there will be listed here.
               </p>
             </form>
 

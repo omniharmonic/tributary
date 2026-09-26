@@ -73,6 +73,15 @@ const publicEvents: PublicEvent[] = [
   { did: hosts.etown!.did, rkey: '3lxa9', host: hosts.etown!, card: card({ key: 'e9', name: 'Songwriters Circle (online)', start: at(5, 18), end: at(5, 19, 30), platform: 'wordpress', sourceUrl: 'https://etown.org/events/songwriters', priceText: 'Free', category: 'music', mode: 'virtual', excerpt: 'Share a song in progress; get one note of feedback each.' }) },
 ]
 
+// Public, exact demo locations. Private and online listings deliberately have no pin.
+const demoGeo: Record<string, { lat: number; lon: number }> = {
+  e1: { lat: 40.0198, lon: -105.2595 }, e2: { lat: 40.0137, lon: -105.2822 },
+  e3: { lat: 40.0202, lon: -105.2753 }, e4: { lat: 39.9992, lon: -105.2811 },
+  e6: { lat: 40.0154, lon: -105.2797 }, e7: { lat: 40.0634, lon: -105.2821 },
+  e8: { lat: 40.0198, lon: -105.2595 },
+}
+for (const e of publicEvents) e.card.geo = demoGeo[e.card.key]
+
 let me: Me | null = {
   host: { id: 'h1', did: hosts.seeds!.did, handle: hosts.seeds!.handle, displayName: 'Front Range Seed Library', email: 'hello@frontrangeseeds.org', door: 'custodial', provenanceLevel: 'email', region: 'boulder', logoUrl: null, createdAt: iso(now.minus({ days: 12 })) },
   capabilities: { canSetPassword: true, canMigrate: true },
@@ -191,20 +200,33 @@ export const mockApi: Api = {
     await delay(80)
     return { region: { slug: 'boulder', name: 'Boulder', tz: TZ }, handleDomain: 'boulderevents.directory', brand: 'Boulder Events Directory', adapterName: 'Tributary' }
   },
-  async publicEvents({ q, category }) {
+  async publicEvents({ q, category, from, to, near, radiusKm }) {
     await delay()
     let list = publicEvents.filter((e) => e.card.visibility === 'public' || (me && e.card.visibility === 'gated'))
+    if (from) list = list.filter((e) => e.card.startsAt >= from)
+    if (to) list = list.filter((e) => e.card.startsAt < to)
+    if (near) {
+      const [lat, lon] = near.split(',').map(Number)
+      list = list.filter((e) => {
+        const g = e.card.geo
+        if (!g) return false
+        const dy = (g.lat - lat!) * 111.2
+        const dx = (g.lon - lon!) * 111.2 * Math.cos(lat! * Math.PI / 180)
+        return Math.hypot(dx, dy) <= Number(radiusKm ?? 15)
+      })
+    }
     if (category) list = list.filter((e) => e.card.category === category)
     if (q) list = list.filter((e) => `${e.card.name} ${e.host.displayName} ${e.card.place ?? ''}`.toLowerCase().includes(q.toLowerCase()))
     return { events: list.map((e) => (e.card.visibility === 'gated' && me ? { ...e, audienceName: 'confirmed guests' } : e)), cursor: null }
   },
-  async publicEventCounts({ category }) {
+  async publicEventCounts({ category, from, to }) {
     await delay()
     const days: Record<string, number> = {}
     for (const e of publicEvents) {
       if (e.card.visibility !== 'public') continue
       if (category && e.card.category !== category) continue
-      const day = e.card.startsAt.slice(0, 10)
+      if (from && e.card.startsAt < from || to && e.card.startsAt >= to) continue
+      const day = DateTime.fromISO(e.card.startsAt).setZone(TZ).toISODate()!
       days[day] = (days[day] ?? 0) + 1
     }
     return { days }

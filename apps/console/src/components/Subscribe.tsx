@@ -10,6 +10,8 @@
  * sending me this, the way I have it now" rather than "send me everything".
  */
 import { useState } from 'react'
+import { Sheet } from './Sheet'
+import { Icon } from './Icon'
 
 export interface SubscribeProps {
   /** The feed path, e.g. `/api/public/regions/boulder/calendar.ics?category=music`. */
@@ -25,6 +27,7 @@ function absolute(path: string): string {
 export function SubscribeMenu({ path, what }: SubscribeProps) {
   const [open, setOpen] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [copyFailed, setCopyFailed] = useState(false)
   const url = absolute(path)
   const webcal = url.replace(/^https?:/, 'webcal:')
 
@@ -32,22 +35,21 @@ export function SubscribeMenu({ path, what }: SubscribeProps) {
     try {
       await navigator.clipboard.writeText(url)
       setCopied(true)
+      setCopyFailed(false)
       window.setTimeout(() => setCopied(false), 2000)
     } catch {
       // Clipboard access can be refused; the link below is still selectable by hand.
       setCopied(false)
+      setCopyFailed(true)
     }
   }
 
   return (
     <div className="relative">
-      <button type="button" className="btn" aria-expanded={open} aria-haspopup="true" onClick={() => setOpen((o) => !o)}>
-        Subscribe
+      <button type="button" className="btn" aria-expanded={open} aria-haspopup="dialog" onClick={() => setOpen((o) => !o)}>
+        <Icon name="calendar" />Subscribe to calendar
       </button>
-      {open ? (
-        <>
-          <button type="button" className="fixed inset-0 z-10 cursor-default" aria-label="Close" onClick={() => setOpen(false)} />
-          <div className="panel absolute right-0 z-20 mt-2 w-[min(22rem,calc(100vw-2rem))] p-4 text-sm sheet-enter" role="dialog" aria-label="Subscribe">
+      <Sheet open={open} onClose={() => setOpen(false)} title="Add to your calendar">
             <p className="text-ink-soft">
               Your calendar app will check back for {what} a few times a day. Nothing is sent to us when it does.
             </p>
@@ -72,9 +74,10 @@ export function SubscribeMenu({ path, what }: SubscribeProps) {
               </a>
               .
             </p>
-          </div>
-        </>
-      ) : null}
+        <p role="status" className="hint">{copied ? 'Calendar link copied.' : copyFailed ? 'Copying is unavailable. Select and copy the address below.' : ''}</p>
+        <label className="field"><span>Calendar subscription address</span><input className="input text-sm" value={url} readOnly onFocus={(e) => e.target.select()} /></label>
+      </Sheet>
+
     </div>
   )
 }

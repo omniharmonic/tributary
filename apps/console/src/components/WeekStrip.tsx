@@ -37,7 +37,7 @@ export function WeekStrip({ counts, tz, selected, onDay }: WeekStripProps) {
             data-today={d.isToday || undefined}
             data-selected={selected === d.iso || undefined}
             aria-pressed={selected === d.iso}
-            aria-label={`${d.dow} ${d.num}, ${n === 0 ? 'nothing listed' : `${n} events`}`}
+            aria-label={`${d.dow} ${d.num}, ${n === 0 ? 'nothing listed' : `${n} ${n === 1 ? 'event' : 'events'}`}`}
             onClick={() => onDay(selected === d.iso ? undefined : d.iso)}
           >
             <span className="week-dow">{d.isToday ? 'Today' : d.dow}</span>

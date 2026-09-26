@@ -23,7 +23,7 @@ export function EventCard({ card, hostName, provenance, audienceName, href, acti
   const cancelled = card.status === 'cancelled'
   const Title = href ? 'a' : 'span'
   return (
-    <article className={`flex gap-3 sm:gap-4 ${cancelled ? 'opacity-70' : ''}`} aria-label={card.name}>
+    <article className={`event-card flex gap-3 sm:gap-4 ${cancelled ? 'opacity-70' : ''}`} aria-label={card.name}>
       <div className={`shrink-0 overflow-hidden rounded-[var(--r-md)] bg-surface-2 ${compact ? 'h-16 w-16' : 'h-20 w-20 sm:h-24 sm:w-32'}`}>
         {card.imageUrl ? (
           <img src={card.imageUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
@@ -68,7 +68,7 @@ function missingText(m: EventCardModel['missing'][number]): string {
 export function Placeholder({ name }: { name: string }) {
   const letter = name.trim().charAt(0).toUpperCase() || '·'
   return (
-    <div className="flex h-full w-full items-end bg-gradient-to-br from-slate-soft to-pine-soft p-2" aria-hidden="true">
+    <div className="event-placeholder" aria-hidden="true">
       <span className="font-serif text-2xl leading-none text-pine">{letter}</span>
     </div>
   )

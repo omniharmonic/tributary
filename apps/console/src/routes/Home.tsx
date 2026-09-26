@@ -1,24 +1,23 @@
 /**
  * The directory: what is on, in three shapes.
  *
- * One query feeds all three views, so the list, the month and the map always agree —
- * switching shape never changes which events you are looking at, only how they are
- * arranged. The filters live in the URL, which means any view a visitor has arrived at
- * is a link they can send to somebody, and the subscription button hands the same
- * filters to their calendar app.
+ * Shared filters feed the list, calendar and map. The calendar requests its whole
+ * visible month and opens a picked day's events underneath. Filters live in the URL
+ * so visitors can share a view and return to it with browser navigation.
  */
 import { Link, useNavigate, useSearch } from '@tanstack/react-router'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
-import { lazy, Suspense, useMemo, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { api } from '../lib/api'
 import { BUCKET_LABEL, bucketFor, dayKey, dayParts, dayWindow, gridWindow, monthGrid, thisMonth, windowFor, type Bucket } from '../lib/dates'
-import { keys, useConfig, useMe } from '../lib/queries'
+import { keys, useConfig } from '../lib/queries'
 import type { PublicEvent } from '../lib/types'
 import { EventCard } from '../components/EventCard'
 import { Empty, PageState } from '../components/PageState'
 import { Flatirons, Footer, Page } from '../components/Shell'
 import { SubscribeMenu } from '../components/Subscribe'
 import { WeekStrip } from '../components/WeekStrip'
+import { Icon } from '../components/Icon'
 import { CalendarGrid } from '../components/CalendarGrid'
 
 const EventMap = lazy(() => import('../components/EventMap').then((m) => ({ default: m.EventMap })))
@@ -49,11 +48,12 @@ interface HomeSearchState {
 
 export function HomeRoute() {
   const cfg = useConfig()
-  const { me } = useMe()
   const search = useSearch({ strict: false }) as HomeSearchState
   const navigate = useNavigate()
   const [q, setQ] = useState(search.q ?? '')
   const [locating, setLocating] = useState(false)
+  const [locationError, setLocationError] = useState('')
+  useEffect(() => setQ(search.q ?? ''), [search.q])
   const tz = cfg.region.tz
   const view: View = search.view ?? 'list'
   const month = search.month ?? thisMonth(tz)
@@ -63,8 +63,8 @@ export function HomeRoute() {
   // Which window the server should answer with. A picked day beats a chip; the calendar
   // asks for the whole visible grid so its cells are never half-filled.
   const win = useMemo(() => {
-    if (search.day) return dayWindow(search.day, tz)
     if (view === 'calendar') return gridWindow(monthGrid(month, tz), tz)
+    if (search.day) return dayWindow(search.day, tz)
     if (search.when) return windowFor(search.when, tz)
     return undefined
   }, [search.day, search.when, view, month, tz])
@@ -83,12 +83,18 @@ export function HomeRoute() {
   // that far yet — the one thing a count must never do. A text or radius search is the
   // exception: those are ranked result sets rather than a window, so there the strip
   // falls back to what was returned, which for a search is the whole answer.
-  const countWindow = search.day || view === 'calendar' ? win : undefined
+  const countWindow = view === 'calendar' ? win : undefined
   const isSearch = !!(search.q || search.near)
   const countsQuery = useQuery({
     queryKey: keys.publicEventCounts({ region: cfg.region.slug, category: search.category, from: countWindow?.from, to: countWindow?.to }),
     queryFn: () => api.publicEventCounts({ region: cfg.region.slug, category: search.category, from: countWindow?.from, to: countWindow?.to }),
     enabled: !isSearch,
+    staleTime: 120_000,
+  })
+  const weekCountsQuery = useQuery({
+    queryKey: keys.publicEventCounts({ region: cfg.region.slug, category: search.category }),
+    queryFn: () => api.publicEventCounts({ region: cfg.region.slug, category: search.category }),
+    enabled: !isSearch && view === 'calendar',
     staleTime: 120_000,
   })
   const counts = useMemo(() => {
@@ -101,7 +107,7 @@ export function HomeRoute() {
     return out
   }, [isSearch, countsQuery.data, events, tz])
 
-  const hrefFor = (e: PublicEvent) => `/e/${encodeURIComponent(e.did)}/${encodeURIComponent(e.rkey ?? '')}`
+  const hrefFor = useCallback((e: PublicEvent) => `/e/${encodeURIComponent(e.did)}/${encodeURIComponent(e.rkey ?? '')}`, [])
   const feedPath = useMemo(() => {
     const p = new URLSearchParams()
     if (search.category) p.set('category', search.category)
@@ -114,14 +120,21 @@ export function HomeRoute() {
 
   const nearMe = () => {
     if (search.near) return go({ near: undefined, radiusKm: undefined })
-    if (!navigator.geolocation) return
+    setLocationError('')
+    if (!navigator.geolocation) {
+      setLocationError('This browser cannot find your location. Search for a place or explore the map instead.')
+      return
+    }
     setLocating(true)
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setLocating(false)
         go({ near: `${pos.coords.latitude.toFixed(4)},${pos.coords.longitude.toFixed(4)}`, radiusKm: search.radiusKm ?? '15' })
       },
-      () => setLocating(false),
+      (error) => {
+        setLocating(false)
+        setLocationError(error.code === 1 ? 'Location access is off. Allow it in your browser, or search for a place instead.' : 'We couldn’t find your location. Try again or search for a place.')
+      },
       { maximumAge: 300_000, timeout: 8000 },
     )
   }
@@ -131,43 +144,42 @@ export function HomeRoute() {
   return (
     <>
       <Page wide>
-        <section className="mb-6 grid gap-5">
-          <div className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-end">
-            <div className="grid gap-2">
-              <h1 className="max-w-[16ch]">What&rsquo;s happening in {cfg.region.name}</h1>
-              <p className="max-w-[52ch] text-ink-soft">From the calendars that already exist. Every listing links back to where it came from, and you never need an account to look.</p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <SubscribeMenu path={feedPath} what={subscribeWhat} />
-              <Link to="/add" className="btn btn-primary">
-                Add your events
-              </Link>
-            </div>
+        <section className="directory-intro">
+          <div className="intro-copy">
+            <p className="intro-location"><Icon name="pin" /> Made for the people of {cfg.region.name}</p>
+            <h1>Make room for<br />something local.</h1>
+            <p className="intro-description">Find your next show, shared meal, or morning outside. A whole community of calendars, together in one place.</p>
+            <SubscribeMenu path={feedPath} what={subscribeWhat} />
           </div>
-          <WeekStrip counts={counts} tz={tz} selected={search.day} onDay={(day) => go({ day, when: undefined })} />
+          <div className="week-panel">
+            <div className="week-heading"><h2>Your week in {cfg.region.name}</h2><span>Pick a day to explore</span></div>
+            <WeekStrip counts={!isSearch && view === 'calendar' ? weekCountsQuery.data?.days ?? {} : counts} tz={tz} selected={search.day} onDay={(day) => go({ day, when: undefined, ...(view === 'calendar' && day ? { month: day.slice(0, 7) } : {}) })} />
+            <p className="week-caption">Local plans. Straight from the people hosting them.</p>
+          </div>
         </section>
 
+        <section className="discovery-tools" aria-label="Find events">
         <div className="filters">
           <form
             role="search"
-            className="flex flex-1 gap-2"
+            className="event-search"
             onSubmit={(e) => {
               e.preventDefault()
-              go({ q: q || undefined })
+              go({ q: q.trim() || undefined })
             }}
           >
             <label className="sr-only" htmlFor="q">
               Search events
             </label>
-            <input id="q" className="input" placeholder="Search by name, place or host" value={q} onChange={(e) => setQ(e.target.value)} />
+            <Icon name="search" /><input id="q" type="search" className="input" placeholder="Search by name, place or host" value={q} onChange={(e) => setQ(e.target.value)} />
             <button className="btn" type="submit">
               Search
             </button>
           </form>
           <div className="seg" role="group" aria-label="View">
             {VIEWS.map((v) => (
-              <button key={v.id} type="button" className="seg-btn" aria-pressed={view === v.id} onClick={() => go({ view: v.id === 'list' ? undefined : v.id })}>
-                {v.label}
+              <button key={v.id} type="button" className="seg-btn" aria-pressed={view === v.id} onClick={() => go({ view: v.id === 'list' ? undefined : v.id, when: v.id === 'calendar' ? undefined : search.when })}>
+                <Icon name={v.id} />{v.label}
               </button>
             ))}
           </div>
@@ -178,27 +190,35 @@ export function HomeRoute() {
             divider now read as two kinds of filter. */}
         <div className="mb-2 flex flex-wrap items-center gap-2" role="group" aria-label="When">
           {(Object.keys(BUCKET_LABEL) as Bucket[]).map((b) => (
-            <button key={b} type="button" className="chip" aria-pressed={search.when === b} onClick={() => go({ when: search.when === b ? undefined : b, day: undefined })}>
+            <button key={b} type="button" className="chip" aria-pressed={search.when === b} onClick={() => go({ when: search.when === b ? undefined : b, day: undefined, view: view === 'calendar' ? undefined : search.view })}>
               {BUCKET_LABEL[b]}
             </button>
           ))}
           <button type="button" className="chip" aria-pressed={!!search.near} onClick={nearMe} disabled={locating}>
-            {locating ? 'Finding you…' : search.near ? `Within ${search.radiusKm ?? 15} km` : 'Near me'}
+            <Icon name="pin" />{locating ? 'Finding you…' : search.near ? 'Near me · on' : 'Near me'}
           </button>
+          {search.near ? <label className="radius-picker"><span className="sr-only">Distance from you</span><select aria-label="Distance from you" value={search.radiusKm ?? '15'} onChange={(e) => go({ radiusKm: e.target.value })}>{['5', '15', '30', '50'].map((r) => <option key={r} value={r}>Within {r} km</option>)}</select></label> : null}
           {search.day || search.when || search.category || search.q || search.near ? (
-            <button type="button" className="btn btn-quiet btn-sm" onClick={() => void navigate({ to: '/', search: { view: search.view } })}>
+            <button type="button" className="btn btn-quiet btn-sm" onClick={() => { setQ(''); setLocationError(''); void navigate({ to: '/', search: { view: search.view } }) }}>
               Clear filters
             </button>
           ) : null}
         </div>
         {/* Ten categories stacked four rows deep pushed the events off a phone screen.
             One scrolling row keeps them reachable without spending the fold on them. */}
-        <div className="chip-rail mb-6" role="group" aria-label="Kind of event">
+        <div className="chip-rail" role="group" aria-label="Kind of event">
           {CATEGORIES.map((cat) => (
             <button key={cat} type="button" className="chip chip-quiet" aria-pressed={search.category === cat} onClick={() => go({ category: search.category === cat ? undefined : cat })}>
-              {cat}
+              {cat.charAt(0).toUpperCase() + cat.slice(1)}
             </button>
           ))}
+        </div>
+
+        {locationError ? <p className="notice notice-warn mt-3" role="alert">{locationError}</p> : null}
+        </section>
+        <div className="results-heading">
+          <h2>{search.day && view !== 'calendar' ? dayParts(search.day, tz).dow + ', ' + dayParts(search.day, tz).month + ' ' + dayParts(search.day, tz).num : search.q ? `Results for “${search.q}”` : search.category ? `${search.category.charAt(0).toUpperCase() + search.category.slice(1)} around town` : 'Explore the calendar'}</h2>
+          <span role="status">{query.isFetching ? 'Updating…' : `${events.length}${query.hasNextPage ? '+' : ''} events${view === 'calendar' ? ' in view' : ''}`}</span>
         </div>
 
         <PageState
@@ -206,9 +226,9 @@ export function HomeRoute() {
           error={query.error}
           retry={() => void query.refetch()}
           empty={
-            !query.isPending && events.length === 0 ? (
-              <Empty title="Nothing listed yet for that" action={<Link to="/add" className="btn btn-primary">Add your events</Link>}>
-                Try another filter, or be the first to list something.
+            view === 'list' && !query.isPending && events.length === 0 ? (
+              <Empty title="No events match these filters" action={<button type="button" className="btn btn-primary" onClick={() => { setQ(''); go({ q: undefined, day: undefined, when: undefined, category: undefined, near: undefined, radiusKm: undefined }) }}>Explore all events</button>}>
+                Try a different date, category, or place. There may be something just around the corner.
               </Empty>
             ) : null
           }
@@ -217,23 +237,25 @@ export function HomeRoute() {
             <CalendarGrid month={month} tz={tz} events={events} counts={counts} selected={search.day} loading={query.isFetching} onMonth={(m) => go({ month: m, day: undefined })} onDay={(day) => go({ day })} />
           ) : view === 'map' ? (
             <Suspense fallback={<div className="map-holder map-holder-loading" aria-label="Loading the map" />}>
-              <EventMap events={events} center={REGION_CENTER} hrefFor={hrefFor} onPick={(ids) => go({ q: undefined, day: undefined, ...pickOne(events, ids) })} />
+              <EventMap events={events} center={REGION_CENTER} hrefFor={hrefFor} />
             </Suspense>
           ) : null}
 
           {/* The list is the list view. Under the month, only a picked day opens — a grid
               with five hundred cards stacked under it is a list with extra steps. */}
-          {view === 'list' ? <Listing events={events} tz={tz} signedIn={!!me} grouped={!search.day} /> : null}
+          {view === 'list' ? <Listing events={events} tz={tz} grouped={!search.day} /> : null}
           {view === 'calendar' && search.day ? (
-            <div className="mt-8">
-              <Listing events={events.filter((e) => dayKey(e.card.startsAt, tz) === search.day)} tz={tz} signedIn={!!me} grouped={false} />
+            <div className="mt-8 selected-day-results">
+              <h2 className="mb-4">Events on {dayParts(search.day, tz).dow}, {dayParts(search.day, tz).month} {dayParts(search.day, tz).num}</h2>
+              {!events.some((e) => dayKey(e.card.startsAt, tz) === search.day) ? <Empty title="A little room in your calendar">Nothing is listed for this day. Choose another day above.</Empty> : null}
+              <Listing events={events.filter((e) => dayKey(e.card.startsAt, tz) === search.day)} tz={tz} grouped={false} />
             </div>
           ) : null}
 
-          {view === 'list' && query.hasNextPage ? (
+          {query.hasNextPage ? (
             <div className="mt-8 flex justify-center">
               <button type="button" className="btn" onClick={() => void query.fetchNextPage()} disabled={query.isFetchingNextPage}>
-                {query.isFetchingNextPage ? 'Loading…' : 'Show more events'}
+                {query.isFetchingNextPage ? 'Loading…' : 'Load more events'}
               </button>
             </div>
           ) : view === 'list' && events.length > 0 ? (
@@ -241,7 +263,7 @@ export function HomeRoute() {
           ) : null}
         </PageState>
 
-        <section className="mt-14 grid gap-3 rounded-[var(--r-md)] bg-surface-2 p-5 sm:grid-cols-[auto_1fr] sm:items-center">
+        <section className="host-invitation">
           <Flatirons className="text-ochre" />
           <div>
             <h2>Host something? Paste your calendar once.</h2>
@@ -257,25 +279,14 @@ export function HomeRoute() {
   )
 }
 
-/** Clicking a pin that holds one event opens it; several, and the day is filtered instead. */
-function pickOne(events: PublicEvent[], ids: string[]): Partial<HomeSearchState> {
-  const hit = events.find((e) => e.card.key === ids[0])
-  if (!hit) return {}
-  if (ids.length === 1) {
-    window.location.href = `/e/${encodeURIComponent(hit.did)}/${encodeURIComponent(hit.rkey ?? '')}`
-    return {}
-  }
-  return { q: hit.card.place ?? undefined }
-}
-
-function Listing({ events, tz, signedIn, grouped }: { events: PublicEvent[]; tz: string; signedIn: boolean; grouped: boolean }) {
+function Listing({ events, tz, grouped }: { events: PublicEvent[]; tz: string; grouped: boolean }) {
   const buckets = useMemo(() => {
     const out: Record<Bucket, PublicEvent[]> = { tonight: [], weekend: [], week: [], later: [] }
     for (const e of [...events].sort((a, b) => a.card.startsAt.localeCompare(b.card.startsAt))) out[bucketFor(e.card.startsAt, tz)].push(e)
     return out
   }, [events, tz])
 
-  if (!grouped) return <DayLedger events={[...events].sort((a, b) => a.card.startsAt.localeCompare(b.card.startsAt))} tz={tz} signedIn={signedIn} />
+  if (!grouped) return <DayLedger events={[...events].sort((a, b) => a.card.startsAt.localeCompare(b.card.startsAt))} tz={tz} />
   const shown = (Object.keys(BUCKET_LABEL) as Bucket[]).filter((b) => buckets[b].length > 0)
   return (
     <div className="grid gap-10">
@@ -284,14 +295,14 @@ function Listing({ events, tz, signedIn, grouped }: { events: PublicEvent[]; tz:
           <h2 id={`h-${b}`} className="mb-3 text-ink-soft">
             {BUCKET_LABEL[b]}
           </h2>
-          <DayLedger events={buckets[b]} tz={tz} signedIn={signedIn} />
+          <DayLedger events={buckets[b]} tz={tz} />
         </section>
       ))}
     </div>
   )
 }
 
-export function DayLedger({ events, tz, signedIn }: { events: PublicEvent[]; tz: string; signedIn: boolean }) {
+export function DayLedger({ events, tz }: { events: PublicEvent[]; tz: string; signedIn?: boolean }) {
   const days: Array<{ key: string; items: PublicEvent[] }> = []
   for (const e of events) {
     const k = dayKey(e.card.startsAt, tz)
@@ -310,7 +321,7 @@ export function DayLedger({ events, tz, signedIn }: { events: PublicEvent[]; tz:
               <div className="num">{num}</div>
               <div className="dow">{month}</div>
             </div>
-            <div className="grid gap-5">
+            <div className="day-events">
               {items.map((e) => (
                 <EventCard
                   key={`${e.did}/${e.rkey ?? e.card.key}`}
@@ -322,7 +333,7 @@ export function DayLedger({ events, tz, signedIn }: { events: PublicEvent[]; tz:
                   provenance={e.host.provenanceLevel}
                   audienceName={e.audienceName}
                   href={`/e/${encodeURIComponent(e.did)}/${encodeURIComponent(e.rkey ?? '')}`}
-                  showMissing={signedIn}
+                  showMissing={false}
                 />
               ))}
             </div>

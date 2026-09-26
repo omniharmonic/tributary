@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { api } from '../lib/api'
 import { plainError } from '../lib/errors'
 import { shortDateTime } from '../lib/dates'
-import { keys } from '../lib/queries'
+import { keys, useActing } from '../lib/queries'
 import type { Rule, Visibility } from '../lib/types'
 import { VISIBILITY_LABEL, platformLabel } from '../components/Badges'
 import { PageState } from '../components/PageState'
@@ -23,6 +23,7 @@ const MATCH_KINDS: Array<{ key: keyof Rule['match']; label: string; kind: 'text'
 
 export function SourceDetailRoute() {
   const { id } = useParams({ strict: false }) as { id: string }
+  const { readOnly } = useActing()
   const qc = useQueryClient()
   const q = useQuery({ queryKey: keys.source(id), queryFn: () => api.source(id) })
   const [rules, setRules] = useState<Rule[]>([])
@@ -53,7 +54,7 @@ export function SourceDetailRoute() {
     <Page>
       <PageState isPending={q.isPending} error={q.error} retry={() => void q.refetch()}>
         {q.data ? (
-          <div className="grid gap-8">
+          <fieldset disabled={readOnly} className="grid gap-8 min-w-0" aria-label="Source settings">
             <div className="grid gap-1">
               <p className="text-sm">
                 <Link to="/dashboard" className="underline underline-offset-2">
@@ -153,7 +154,7 @@ export function SourceDetailRoute() {
                 See every event from this source
               </Link>
             </p>
-          </div>
+          </fieldset>
         ) : null}
       </PageState>
     </Page>

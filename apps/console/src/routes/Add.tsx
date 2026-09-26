@@ -1,3 +1,4 @@
+import { PublishSteps } from '../components/PublishSteps'
 import { useNavigate, useSearch } from '@tanstack/react-router'
 import { useMutation } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
@@ -47,6 +48,7 @@ export function AddRoute() {
   return (
     <>
       <Page title="Add your events" lede="Paste a link, drop a file, or describe an event. You keep using whatever you use now; we keep the directory up to date.">
+        <PublishSteps step={1} />
         <OneBox onSubmit={(s) => { setPending(null); detect.mutate(s) }} busy={busy} autoFocus initialInput={prefill ?? ''} />
         {error ? (
           <p className="notice notice-warn mt-4" role="alert">

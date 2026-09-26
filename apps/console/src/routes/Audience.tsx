@@ -4,12 +4,15 @@ import { useState } from 'react'
 import { api } from '../lib/api'
 import { plainError } from '../lib/errors'
 import { shortDateTime } from '../lib/dates'
+import { useActing } from '../lib/queries'
+import { CopyButton } from '../components/CopyButton'
 import { HonestTermsNotice } from '../components/HonestTermsNotice'
 import { PageState } from '../components/PageState'
 import { Page } from '../components/Shell'
 
 export function AudienceRoute() {
   const { eventId } = useParams({ strict: false }) as { eventId: string }
+  const { readOnly } = useActing()
   const qc = useQueryClient()
   const q = useQuery({ queryKey: ['audience', eventId], queryFn: () => api.audience(eventId) })
   const invalidate = () => void qc.invalidateQueries({ queryKey: ['audience', eventId] })
@@ -42,7 +45,7 @@ export function AudienceRoute() {
         {q.data ? (
           <div className="grid gap-6">
             <p className="text-sm text-ink-soft">
-              {q.data.members} {q.data.members === 1 ? 'person' : 'people'} can see the details. Policy: <code className="text-xs">{q.data.policy}</code>
+              {q.data.members} {q.data.members === 1 ? 'person' : 'people'} can see the event details.
             </p>
             <HonestTermsNotice />
 
@@ -57,10 +60,10 @@ export function AudienceRoute() {
                     </span>
                     {r.state === 'pending' ? (
                       <span className="flex gap-2">
-                        <button type="button" className="btn btn-sm btn-primary" onClick={() => decide.mutate({ id: r.id, action: 'approve' })}>
+                        <button type="button" className="btn btn-sm btn-primary" onClick={() => decide.mutate({ id: r.id, action: 'approve' })} disabled={decide.isPending || readOnly}>
                           Approve
                         </button>
-                        <button type="button" className="btn btn-sm" onClick={() => decide.mutate({ id: r.id, action: 'deny' })}>
+                        <button type="button" className="btn btn-sm" onClick={() => decide.mutate({ id: r.id, action: 'deny' })} disabled={decide.isPending || readOnly}>
                           Deny
                         </button>
                       </span>
@@ -72,6 +75,7 @@ export function AudienceRoute() {
               </ul>
             </section>
 
+            {decide.error ? <p className="notice notice-warn" role="alert">{plainError(decide.error)}</p> : null}
             <section className="panel grid gap-3 p-4">
               <h2>Invite people</h2>
               <label className="field">
@@ -79,7 +83,7 @@ export function AudienceRoute() {
                 <textarea className="textarea" value={people} onChange={(e) => setPeople(e.target.value)} placeholder="maple.bsky.social, wren@example.org" />
               </label>
               <div>
-                <button type="button" className="btn btn-primary" onClick={() => invite.mutate()} disabled={invite.isPending || !people.trim()}>
+                <button type="button" className="btn btn-primary" onClick={() => invite.mutate()} disabled={invite.isPending || readOnly || !people.trim()}>
                   Invite
                 </button>
               </div>
@@ -112,8 +116,8 @@ export function AudienceRoute() {
                 </label>
               </div>
               <div>
-                <button type="button" className="btn btn-primary" onClick={() => create.mutate()} disabled={create.isPending}>
-                  Create link
+                <button type="button" className="btn btn-primary" onClick={() => create.mutate()} disabled={create.isPending || readOnly || !Number.isInteger(hours) || hours < 1 || (maxUses !== '' && (!Number.isInteger(maxUses) || maxUses < 1))}>
+                  {create.isPending ? 'Creating…' : 'Create link'}
                 </button>
               </div>
               {create.error ? <p className="notice notice-warn">{plainError(create.error)}</p> : null}
@@ -121,20 +125,17 @@ export function AudienceRoute() {
                 <div className="notice grid gap-1">
                   <p className="font-medium">Copy this now. It is shown once.</p>
                   <code className="break-all text-sm">{fresh.url}</code>
-                  <div>
-                    <button type="button" className="btn btn-sm" onClick={() => void navigator.clipboard?.writeText(fresh.url)}>
-                      Copy
-                    </button>
-                  </div>
+                  <CopyButton key={fresh.url} value={fresh.url} />
                 </div>
               ) : null}
+              {del.error ? <p className="notice notice-warn" role="alert">{plainError(del.error)}</p> : null}
               <ul className="grid gap-2">
                 {q.data.invites.map((i) => (
                   <li key={i.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
                     <span>
                       {i.kind} · expires {shortDateTime(i.expiresAt)} · {i.usesLeft === null ? 'unlimited' : `${i.usesLeft} uses left`}
                     </span>
-                    <button type="button" className="btn btn-sm btn-quiet" onClick={() => del.mutate(i.id)}>
+                    <button type="button" className="btn btn-sm btn-quiet" onClick={() => del.mutate(i.id)} disabled={del.isPending || readOnly}>
                       Revoke
                     </button>
                   </li>

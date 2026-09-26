@@ -44,7 +44,7 @@ export function DashboardRoute() {
     <Page title={acting ? `${acting.displayName}'s sources` : 'Your sources'} lede={readOnly ? 'You can look but not change anything here.' : 'Each one is checked on its own schedule. Edit events where they live; changes show up here by themselves.'}>
       {search.welcome ? (
         <p className="notice mb-5" role="status">
-          You&rsquo;re in. Your first events are publishing now. This page is where you come back to see how each source is doing.
+          You&rsquo;re signed in. Manage your connected calendars and review anything waiting to publish here.
         </p>
       ) : null}
       <PageState
@@ -57,7 +57,7 @@ export function DashboardRoute() {
           {q.data?.sources.map((s) => {
             const st = sourceStatusText(s)
             return (
-              <li key={s.id} className="panel grid gap-3 p-4">
+              <li key={s.id} className="source-panel panel grid gap-3 p-4">
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div className="min-w-0">
                     <h2 className="truncate">
@@ -88,7 +88,7 @@ export function DashboardRoute() {
                 </p>
                 <div className="flex flex-wrap gap-2">
                   <button type="button" className="btn btn-sm" onClick={() => sync.mutate(s.id)} disabled={sync.isPending || readOnly}>
-                    Sync now
+                    {sync.isPending && sync.variables === s.id ? 'Queuing sync…' : 'Sync now'}
                   </button>
                   <button type="button" className="btn btn-sm" onClick={() => pause.mutate({ id: s.id, paused: s.status !== 'paused' })} disabled={pause.isPending || readOnly}>
                     {s.status === 'paused' ? 'Resume' : 'Pause'}
@@ -104,6 +104,7 @@ export function DashboardRoute() {
             )
           })}
         </ul>
+        {sync.isSuccess ? <p className="notice mt-3" role="status">Sync queued. Your source will be checked shortly.</p> : null}
         {sync.error || pause.error ? <p className="notice notice-warn mt-3">{plainError(sync.error ?? pause.error)}</p> : null}
         <div className="mt-6 flex flex-wrap gap-2">
           <Link to="/add" className={`btn ${readOnly ? 'pointer-events-none opacity-50' : ''}`} aria-disabled={readOnly || undefined}>
